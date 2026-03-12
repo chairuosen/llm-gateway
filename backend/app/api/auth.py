@@ -19,6 +19,7 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 class AuthStatusResponse(BaseModel):
     enabled: bool
     authenticated: bool
+    enable_view_api_keys: bool = False
 
 
 class LoginRequest(BaseModel):
@@ -48,7 +49,11 @@ async def auth_status(
     settings = get_settings()
     enabled = is_admin_auth_enabled(settings.ADMIN_USERNAME, settings.ADMIN_PASSWORD)
     if not enabled:
-        return AuthStatusResponse(enabled=False, authenticated=True)
+        return AuthStatusResponse(
+            enabled=False,
+            authenticated=True,
+            enable_view_api_keys=settings.ENABLE_VIEW_API_KEYS,
+        )
 
     token = x_admin_token or _extract_bearer_token(authorization)
     authenticated = bool(
@@ -59,7 +64,11 @@ async def auth_status(
             admin_password=settings.ADMIN_PASSWORD or "",
         )
     )
-    return AuthStatusResponse(enabled=True, authenticated=authenticated)
+    return AuthStatusResponse(
+        enabled=True,
+        authenticated=authenticated,
+        enable_view_api_keys=settings.ENABLE_VIEW_API_KEYS,
+    )
 
 
 @router.post("/login", response_model=LoginResponse)

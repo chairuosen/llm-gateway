@@ -254,6 +254,9 @@ See [docs/api.md](docs/api.md) for complete API documentation.
 | `HTTP_TIMEOUT` | 1800 | Upstream request timeout (seconds) |
 | `API_KEY_PREFIX` | lgw- | Prefix for generated API keys |
 | `API_KEY_LENGTH` | 32 | Length of generated API keys |
+| `ENCRYPTION_KEY` | - | Base64-encoded 32-byte key used to encrypt stored sensitive fields (must stay stable across restarts) |
+| `ENABLE_VIEW_API_KEYS` | false | Whether full API keys can be viewed/copied again on the API Keys page |
+| `RATE_LIMIT_ENABLED` | false | Enable/disable built-in rate limiting middleware |
 | `ADMIN_USERNAME` | - | Admin login username (optional) |
 | `ADMIN_PASSWORD` | - | Admin login password (optional) |
 | `ADMIN_TOKEN_TTL_SECONDS` | 86400 | Admin session TTL (24 hours) |
@@ -262,6 +265,16 @@ See [docs/api.md](docs/api.md) for complete API documentation.
 | `LLM_GATEWAY_PORT` | 8000 | Host port for Docker Compose |
 | `KV_STORE_TYPE` | database | KV store backend: `database` or `redis` |
 | `REDIS_URL` | - | Redis connection URL (when using Redis KV store) |
+
+Generate an encryption key:
+```bash
+python -c "import secrets, base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
+```
+
+Set it in your `.env` (required for production):
+```env
+ENCRYPTION_KEY=your-generated-key
+```
 
 ### Database Configuration
 

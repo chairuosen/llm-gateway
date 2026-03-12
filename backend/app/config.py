@@ -63,6 +63,30 @@ class Settings(BaseSettings):
     # Log cleanup interval in hours (default 24 hours)
     LOG_CLEANUP_INTERVAL_HOURS: int = 24
 
+    # CORS Config
+    # Comma-separated list of allowed origins for CORS
+    # Example: "http://localhost:3000,https://example.com"
+    # Default: empty list (no CORS allowed in production)
+    ALLOWED_ORIGINS: str = ""
+
+    # Encryption Config
+    # Encryption key for sensitive data (e.g., API keys)
+    # Generate with: python -c "import secrets, base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
+    # WARNING: Changing this key will make previously encrypted data unreadable
+    ENCRYPTION_KEY: str | None = None
+    # Whether API keys can be viewed/copied again in admin API Key list
+    ENABLE_VIEW_API_KEYS: bool = False
+
+    # Rate Limit Config
+    # Enable/disable rate limiting (useful for development)
+    RATE_LIMIT_ENABLED: bool = False
+    # Default rate limit for general endpoints
+    RATE_LIMIT_DEFAULT: str = "100/minute"
+    # Rate limit for admin API endpoints
+    RATE_LIMIT_ADMIN: str = "20/minute"
+    # Rate limit for proxy endpoints (/v1/*)
+    RATE_LIMIT_PROXY: str = "200/minute"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
