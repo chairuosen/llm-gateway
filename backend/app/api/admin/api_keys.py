@@ -12,7 +12,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.api.deps import ApiKeyServiceDep, LogServiceDep, require_admin_auth
-from app.common.errors import AppError, NotFoundError
+from app.common.errors import AppError
+from app.config import get_settings
 from app.domain.api_key import ApiKeyCreate, ApiKeyUpdate, ApiKeyResponse, ApiKeyCreateResponse
 
 logger = logging.getLogger(__name__)
@@ -86,9 +87,34 @@ async def get_api_key(
         return JSONResponse(content=e.to_dict(), status_code=e.status_code)
 
 
-# NOTE: The /raw endpoint has been removed for security reasons.
-# API keys are returned in full ONLY when created.
-# This prevents unauthorized access to complete API keys.
+@router.get("/{key_id}/raw", response_model=dict[str, str])
+async def get_api_key_raw(
+    key_id: int,
+    service: ApiKeyServiceDep,
+):
+    """
+    Get raw (unsanitized) key_value.
+
+    This endpoint is guarded by ENABLE_VIEW_API_KEYS.
+    """
+    settings = get_settings()
+    if not settings.ENABLE_VIEW_API_KEYS:
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={
+                "error": {
+                    "message": "Viewing API keys is disabled",
+                    "type": "forbidden_error",
+                    "code": "api_key_view_disabled",
+                }
+            },
+        )
+
+    try:
+        key_value = await service.get_raw_key_value(key_id)
+        return {"key_value": key_value}
+    except AppError as e:
+        return JSONResponse(content=e.to_dict(), status_code=e.status_code)
 
 
 @router.post("", response_model=ApiKeyCreateResponse, status_code=status.HTTP_201_CREATED)

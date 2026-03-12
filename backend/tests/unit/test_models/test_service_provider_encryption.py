@@ -48,6 +48,18 @@ class TestServiceProviderEncryption:
         # Retrieved value should be the original plaintext
         assert retrieved_key == test_key
 
+    def test_get_api_key_returns_plaintext_when_not_encrypted(self):
+        """Legacy plaintext values should be returned directly without decrypt attempt."""
+        provider = ServiceProvider(
+            name="test-provider",
+            base_url="https://api.example.com",
+            protocol="openai",
+            api_type="chat",
+        )
+        provider._api_key = "legacy-plain-key"
+
+        assert provider.api_key == "legacy-plain-key"
+
     def test_set_none_api_key(self):
         """Test that setting None for api_key works correctly"""
         provider = ServiceProvider(

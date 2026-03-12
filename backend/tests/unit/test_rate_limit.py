@@ -244,6 +244,23 @@ class TestRateLimitMiddleware:
                 response = client.get("/health")
                 assert response.status_code == 200
 
+    def test_middleware_root_only_excludes_root(self, app, mock_settings):
+        """/ should be excluded, but other paths must still be rate limited."""
+        mock_settings.RATE_LIMIT_DEFAULT = "1/minute"
+
+        with patch("app.middleware.rate_limit.get_settings", return_value=mock_settings):
+            app.add_middleware(RateLimitMiddleware)
+            client = TestClient(app)
+
+            root_response = client.get("/")
+            assert root_response.status_code in (200, 404)
+
+            first = client.get("/test")
+            assert first.status_code == 200
+
+            second = client.get("/test")
+            assert second.status_code == 429
+
     def test_middleware_returns_429_when_exceeded(self, app, mock_settings):
         """Middleware returns 429 when rate limit exceeded."""
         # Set a very low limit for testing
@@ -281,11 +298,12 @@ class TestRateLimitMiddleware:
             response = client.get("/test")
             assert response.status_code == 429
 
-            # Test proxy endpoint limit (higher)
-            # Note: In-memory limiter uses different keys, so proxy endpoint
-            # should still work
+            # Test proxy endpoint limit (higher) with a different key namespace
             for _ in range(5):
-                response = client.get("/v1/chat/completions")
+                response = client.get(
+                    "/v1/chat/completions",
+                    headers={"x-api-key": "proxy-test-key"},
+                )
                 assert response.status_code == 200
 
     def test_middleware_disabled(self, app, mock_settings):
