@@ -74,10 +74,12 @@ class Settings(BaseSettings):
     # Generate with: python -c "import secrets, base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
     # WARNING: Changing this key will make previously encrypted data unreadable
     ENCRYPTION_KEY: str | None = None
+    # Whether API keys can be viewed/copied again in admin API Key list
+    ENABLE_VIEW_API_KEYS: bool = False
 
     # Rate Limit Config
     # Enable/disable rate limiting (useful for development)
-    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_ENABLED: bool = False
     # Default rate limit for general endpoints
     RATE_LIMIT_DEFAULT: str = "100/minute"
     # Rate limit for admin API endpoints

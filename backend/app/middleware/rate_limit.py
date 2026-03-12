@@ -6,6 +6,7 @@ Supports configurable rate limits for different endpoint types.
 """
 
 import logging
+import hashlib
 import time
 from typing import Callable
 
@@ -192,8 +193,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 api_key = auth[7:].strip()
 
         if api_key:
-            # Use hashed key for privacy (first 8 chars as identifier)
-            return f"apikey:{api_key[:8]}", "api_key"
+            # Hash the key to avoid storing raw secret fragments in memory/logs
+            key_hash = hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:16]
+            return f"apikey:{key_hash}", "api_key"
 
         # Fallback to IP-based limiting
         ip = self._get_client_ip(request)
@@ -222,15 +224,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     def _is_excluded_path(self, path: str) -> bool:
         """Check if path should be excluded from rate limiting."""
-        excluded_prefixes = [
-            "/health",
+        excluded_exact_paths = {
             "/",
-            "/docs",
+            "/health",
             "/openapi.json",
             "/redoc",
             "/favicon.ico",
+        }
+        if path in excluded_exact_paths:
+            return True
+
+        excluded_prefixes = [
+            "/docs",
         ]
-        return any(path == prefix or path.startswith(prefix) for prefix in excluded_prefixes)
+        return any(path == prefix or path.startswith(f"{prefix}/") for prefix in excluded_prefixes)
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request through rate limiter."""

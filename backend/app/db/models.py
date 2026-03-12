@@ -93,6 +93,11 @@ class ServiceProvider(Base):
         """
         if self._api_key is None:
             return None
+
+        # Backward compatibility: legacy plaintext values should be returned directly.
+        if not is_encrypted(self._api_key):
+            return self._api_key
+
         try:
             return decrypt(self._api_key)
         except Exception as e:

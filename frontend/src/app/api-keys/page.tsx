@@ -21,6 +21,7 @@ import {
 import { ApiKey, ApiKeyCreate, ApiKeyUpdate } from '@/types';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { parseNumberParam, setParam } from '@/lib/utils';
+import { getAuthStatus } from '@/lib/api/auth';
 
 /**
  * API Key Management Page Component
@@ -78,6 +79,27 @@ function ApiKeysContent() {
   // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingKey, setDeletingKey] = useState<ApiKey | null>(null);
+  const [canViewApiKeys, setCanViewApiKeys] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadAuthStatus() {
+      try {
+        const status = await getAuthStatus();
+        if (!cancelled) {
+          setCanViewApiKeys(status.enable_view_api_keys === true);
+        }
+      } catch {
+        if (!cancelled) {
+          setCanViewApiKeys(false);
+        }
+      }
+    }
+    loadAuthStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Data query
   const { data, isLoading, isError, refetch } = useApiKeys({
@@ -195,6 +217,7 @@ function ApiKeysContent() {
             <>
               <ApiKeyList
                 apiKeys={data.items}
+                canViewApiKeys={canViewApiKeys}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
               />

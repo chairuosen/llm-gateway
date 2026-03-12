@@ -65,8 +65,9 @@ services:
       DEBUG: ${DEBUG:-false}
       DATABASE_TYPE: ${DATABASE_TYPE:-postgresql}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-llm_gateway}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-llm_gateway}
-      REDIS_URL: ${REDIS_URL:-${REDIS_PASSWORD:+redis://:${REDIS_PASSWORD}@}redis:6379}
+      REDIS_URL: ${REDIS_URL:-redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}redis:6379/0}
       KV_STORE_TYPE: ${KV_STORE_TYPE:-redis}
+      ENABLE_VIEW_API_KEYS: ${ENABLE_VIEW_API_KEYS:-false}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}

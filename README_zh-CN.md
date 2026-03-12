@@ -255,6 +255,9 @@ response = client.responses.create(
 | `HTTP_TIMEOUT` | 1800 | 上游请求超时（秒） |
 | `API_KEY_PREFIX` | lgw- | 生成的 API Key 前缀 |
 | `API_KEY_LENGTH` | 32 | 生成的 API Key 长度 |
+| `ENCRYPTION_KEY` | - | 用于加密存储敏感字段的 32 字节 Base64 密钥（重启后必须保持不变） |
+| `ENABLE_VIEW_API_KEYS` | false | 是否允许在 API Keys 页面再次查看/复制完整 API Key |
+| `RATE_LIMIT_ENABLED` | false | 启用/禁用内置限流中间件 |
 | `ADMIN_USERNAME` | - | 管理员登录用户名（可选） |
 | `ADMIN_PASSWORD` | - | 管理员登录密码（可选） |
 | `ADMIN_TOKEN_TTL_SECONDS` | 86400 | 管理员会话有效期（24 小时） |
@@ -263,6 +266,16 @@ response = client.responses.create(
 | `LLM_GATEWAY_PORT` | 8000 | Docker Compose 主机端口 |
 | `KV_STORE_TYPE` | database | KV 存储后端：`database` 或 `redis` |
 | `REDIS_URL` | - | Redis 连接 URL（使用 Redis KV 存储时） |
+
+生成加密密钥：
+```bash
+python -c "import secrets, base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
+```
+
+在 `.env` 中设置（生产环境必填）：
+```env
+ENCRYPTION_KEY=your-generated-key
+```
 
 ### 数据库配置
 
