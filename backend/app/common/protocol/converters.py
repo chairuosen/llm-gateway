@@ -463,6 +463,21 @@ def _openai_content_to_gemini_parts(content: Any) -> list[Dict[str, Any]]:
     return parts
 
 
+def _clean_gemini_schema(schema: Any) -> Any:
+    """Recursively remove unsupported keys from JSON schema for Gemini API."""
+    if isinstance(schema, list):
+        return [_clean_gemini_schema(item) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+    
+    cleaned = {}
+    for k, v in schema.items():
+        if k in ("patternProperties", "additionalProperties"):
+            continue
+        cleaned[k] = _clean_gemini_schema(v)
+    return cleaned
+
+
 def _openai_tools_to_gemini_tools(tools: Any) -> Optional[list[Dict[str, Any]]]:
     if not isinstance(tools, list):
         return None
@@ -483,7 +498,7 @@ def _openai_tools_to_gemini_tools(tools: Any) -> Optional[list[Dict[str, Any]]]:
             decl["description"] = fn["description"]
         params = fn.get("parameters")
         if isinstance(params, dict):
-            decl["parameters"] = params
+            decl["parameters"] = _clean_gemini_schema(params)
         declarations.append(decl)
 
     if not declarations:
@@ -544,7 +559,10 @@ def _openai_chat_to_gemini_request(
             system_parts.extend(_openai_content_to_gemini_parts(msg.get("content")))
             continue
 
-        parts = _openai_content_to_gemini_parts(msg.get("content"))
+        if role == "tool":
+            parts = []
+        else:
+            parts = _openai_content_to_gemini_parts(msg.get("content"))
 
         if role == "assistant":
             tool_calls = msg.get("tool_calls")
@@ -561,29 +579,54 @@ def _openai_chat_to_gemini_request(
                     args = _safe_json_loads(fn.get("arguments"))
                     if not isinstance(args, dict):
                         args = {"value": args}
-                    parts.append({"functionCall": {"name": name, "args": args}})
+                    
+                    fc_payload: Dict[str, Any] = {"name": name, "args": args}
+                    call_id = tc.get("id")
+                    if call_id:
+                        fc_payload["id"] = call_id
+                        
+                    part: Dict[str, Any] = {"functionCall": fc_payload}
+                    extra_content = tc.get("extra_content")
+                    if isinstance(extra_content, dict):
+                        google_extra = extra_content.get("google")
+                        if isinstance(google_extra, dict):
+                            ts = google_extra.get("thought_signature")
+                            if ts:
+                                part["thoughtSignature"] = ts
+                    parts.append(part)
 
         if role == "tool":
             response_name = msg.get("name") or "tool"
             tool_payload: Any = msg.get("content")
             if isinstance(tool_payload, str):
                 tool_payload = _safe_json_loads(tool_payload)
+            tool_response: Dict[str, Any] = {
+                "name": response_name,
+                "response": {"content": tool_payload},
+            }
+            tool_call_id = msg.get("tool_call_id")
+            if tool_call_id:
+                tool_response["id"] = tool_call_id
             parts.append(
                 {
-                    "functionResponse": {
-                        "name": response_name,
-                        "response": {"content": tool_payload},
-                    }
+                    "functionResponse": tool_response
                 }
             )
             role = "user"
 
-        contents.append(
-            {
-                "role": "model" if role == "assistant" else "user",
-                "parts": parts or [{"text": ""}],
-            }
-        )
+        target_role = "model" if role == "assistant" else "user"
+        if not parts:
+            parts = [{"text": ""}]
+            
+        if contents and contents[-1]["role"] == target_role:
+            contents[-1]["parts"].extend(parts)
+        else:
+            contents.append(
+                {
+                    "role": target_role,
+                    "parts": parts,
+                }
+            )
 
     out: Dict[str, Any] = {"contents": contents or [{"role": "user", "parts": [{"text": ""}]}]}
 
@@ -703,27 +746,30 @@ def _gemini_request_to_openai_chat(
                 fc = part.get("functionCall")
                 if isinstance(fc, dict) and isinstance(fc.get("name"), str):
                     args = fc.get("args")
-                    tool_calls.append(
-                        {
-                            "id": f"call_{uuid.uuid4().hex}",
-                            "type": "function",
-                            "function": {
-                                "name": fc["name"],
-                                "arguments": json.dumps(args or {}, ensure_ascii=False),
-                            },
-                        }
-                    )
+                    tool_call: Dict[str, Any] = {
+                        "id": fc.get("id") or f"call_{uuid.uuid4().hex}",
+                        "type": "function",
+                        "function": {
+                            "name": fc["name"],
+                            "arguments": json.dumps(args or {}, ensure_ascii=False),
+                        },
+                    }
+                    ts = part.get("thoughtSignature") or part.get("thought_signature")
+                    if ts:
+                        tool_call["extra_content"] = {"google": {"thought_signature": ts}}
+                    tool_calls.append(tool_call)
                 fr = part.get("functionResponse")
                 if isinstance(fr, dict):
                     tool_name = fr.get("name") if isinstance(fr.get("name"), str) else "tool"
                     tool_content = fr.get("response", {}).get("content")
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "name": tool_name,
-                            "content": json.dumps(tool_content, ensure_ascii=False),
-                        }
-                    )
+                    tool_msg: Dict[str, Any] = {
+                        "role": "tool",
+                        "name": tool_name,
+                        "content": json.dumps(tool_content, ensure_ascii=False),
+                    }
+                    if "id" in fr:
+                        tool_msg["tool_call_id"] = fr["id"]
+                    messages.append(tool_msg)
 
         msg: Dict[str, Any] = {"role": openai_role}
         if tool_calls:
@@ -958,16 +1004,18 @@ def _gemini_response_to_openai(
                 text_parts.append(part["text"])
             fc = part.get("functionCall")
             if isinstance(fc, dict) and isinstance(fc.get("name"), str):
-                tool_calls.append(
-                    {
-                        "id": f"call_{uuid.uuid4().hex}",
-                        "type": "function",
-                        "function": {
-                            "name": fc["name"],
-                            "arguments": json.dumps(fc.get("args") or {}, ensure_ascii=False),
-                        },
-                    }
-                )
+                tool_call = {
+                    "id": fc.get("id") or f"call_{uuid.uuid4().hex}",
+                    "type": "function",
+                    "function": {
+                        "name": fc["name"],
+                        "arguments": json.dumps(fc.get("args") or {}, ensure_ascii=False),
+                    },
+                }
+                ts = part.get("thoughtSignature") or part.get("thought_signature")
+                if ts:
+                    tool_call["extra_content"] = {"google": {"thought_signature": ts}}
+                tool_calls.append(tool_call)
             inline = part.get("inlineData")
             if (
                 isinstance(inline, dict)
@@ -1066,14 +1114,22 @@ def _openai_response_to_gemini(
                     fn = tc.get("function")
                     if not isinstance(fn, dict) or not isinstance(fn.get("name"), str):
                         continue
-                    parts.append(
-                        {
-                            "functionCall": {
-                                "name": fn["name"],
-                                "args": _safe_json_loads(fn.get("arguments")),
-                            }
-                        }
-                    )
+                    fc_payload: Dict[str, Any] = {
+                        "name": fn["name"],
+                        "args": _safe_json_loads(fn.get("arguments")),
+                    }
+                    if "id" in tc:
+                        fc_payload["id"] = tc["id"]
+                        
+                    part: Dict[str, Any] = {"functionCall": fc_payload}
+                    extra_content = tc.get("extra_content")
+                    if isinstance(extra_content, dict):
+                        google_extra = extra_content.get("google")
+                        if isinstance(google_extra, dict):
+                            ts = google_extra.get("thought_signature")
+                            if ts:
+                                part["thoughtSignature"] = ts
+                    parts.append(part)
         usage = body.get("usage", {})
         usage_meta = {
             "promptTokenCount": usage.get("prompt_tokens", 0),
@@ -1934,6 +1990,7 @@ class SDKStreamConverter(IStreamConverter):
         sent_role = False
         response_id = f"chatcmpl-{uuid.uuid4().hex}"
         done = False
+        tool_call_index = 0
 
         async for chunk in upstream:
             for payload in decoder.feed(chunk):
@@ -1966,18 +2023,23 @@ class SDKStreamConverter(IStreamConverter):
                                 args = fc.get("args")
                                 if not isinstance(args, str):
                                     args = json.dumps(args or {}, ensure_ascii=False)
+                                
+                                tool_call: Dict[str, Any] = {
+                                    "index": tool_call_index,
+                                    "id": fc.get("id") or f"call_{uuid.uuid4().hex}",
+                                    "type": "function",
+                                    "function": {
+                                        "name": fc["name"],
+                                        "arguments": args,
+                                    },
+                                }
+                                tool_call_index += 1
+                                ts = part.get("thoughtSignature") or part.get("thought_signature")
+                                if ts:
+                                    tool_call["extra_content"] = {"google": {"thought_signature": ts}}
+                                
                                 delta = {
-                                    "tool_calls": [
-                                        {
-                                            "index": 0,
-                                            "id": f"call_{uuid.uuid4().hex}",
-                                            "type": "function",
-                                            "function": {
-                                                "name": fc["name"],
-                                                "arguments": args,
-                                            },
-                                        }
-                                    ]
+                                    "tool_calls": [tool_call]
                                 }
                                 if not sent_role:
                                     delta["role"] = "assistant"
