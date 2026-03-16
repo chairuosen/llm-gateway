@@ -51,6 +51,9 @@ class ProtocolConversionHooks:
         request_protocol: str,
         supplier_protocol: str,
     ) -> dict[str, Any]:
+        if request_protocol == "openai" and self._kv_repo:
+            await self._inject_cached_content(body)
+
         return body
 
     async def after_request_conversion(
@@ -59,7 +62,7 @@ class ProtocolConversionHooks:
         request_protocol: str,
         supplier_protocol: str,
     ) -> dict[str, Any]:
-        if supplier_protocol == "openai" and self._kv_repo:
+        if supplier_protocol == "openai" and request_protocol != "openai" and self._kv_repo:
             await self._inject_cached_content(supplier_body)
 
         return supplier_body
@@ -70,9 +73,8 @@ class ProtocolConversionHooks:
         request_protocol: str,
         supplier_protocol: str,
     ) -> Any:
-        if self._kv_repo and isinstance(supplier_body, dict):
+        if supplier_protocol == "openai" and self._kv_repo and isinstance(supplier_body, dict):
             await self._cache_response_tool_call_extra_content(supplier_body)
-
         return supplier_body
 
     async def after_response_conversion(
@@ -81,6 +83,9 @@ class ProtocolConversionHooks:
         request_protocol: str,
         supplier_protocol: str,
     ) -> Any:
+        if request_protocol == "openai" and supplier_protocol != "openai" and self._kv_repo and isinstance(response_body, dict):
+            await self._cache_response_tool_call_extra_content(response_body)
+
         return response_body
 
     async def before_stream_chunk_conversion(
@@ -89,7 +94,9 @@ class ProtocolConversionHooks:
         request_protocol: str,
         supplier_protocol: str,
     ) -> bytes:
-        return await self._cache_response_tool_call_extra_content_stream(chunk)
+        if supplier_protocol == "openai":
+            await self._cache_response_tool_call_extra_content_stream(chunk)
+        return chunk
 
     async def after_stream_chunk_conversion(
         self,
@@ -97,6 +104,8 @@ class ProtocolConversionHooks:
         request_protocol: str,
         supplier_protocol: str,
     ) -> bytes:
+        if request_protocol == "openai" and supplier_protocol != "openai":
+            await self._cache_response_tool_call_extra_content_stream(chunk)
         return chunk
 
     async def before_image_request_conversion(

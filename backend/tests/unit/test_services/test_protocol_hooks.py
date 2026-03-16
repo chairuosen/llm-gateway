@@ -361,8 +361,8 @@ async def test_inject_tool_call_extra_content_for_openai_protocol():
         ],
     }
 
-    result = await hooks.after_request_conversion(
-        supplier_body=supplier_body,
+    result = await hooks.before_request_conversion(
+        body=supplier_body,
         request_protocol="openai",
         supplier_protocol="openai",
     )
@@ -380,9 +380,20 @@ async def test_inject_tool_call_extra_content_for_openai_protocol():
 
 
 @pytest.mark.asyncio
-async def test_inject_tool_call_extra_content_skipped_for_non_openai_protocol():
-    """Test that extra_content injection is skipped for non-openai protocols."""
+async def test_inject_tool_call_extra_content_in_after_request_for_non_openai():
+    """Test that extra_content is injected in after_request if supplier is openai and request is not."""
     mock_kv_repo = AsyncMock()
+    extra_content_data = {"google": {"thought_signature": "sig"}}
+    
+    async def mock_get(key: str):
+        if key == "tool_call_extra:call-123":
+            from app.common.time import utc_now
+            from app.domain.kv_store import KeyValueModel
+            import json
+            return KeyValueModel(key="test_key", value=json.dumps(extra_content_data), expires_at=None, created_at=utc_now(), updated_at=utc_now())
+        return None
+        
+    mock_kv_repo.get.side_effect = mock_get
     hooks = ProtocolConversionHooks(kv_repo=mock_kv_repo)
 
     supplier_body = {
@@ -398,12 +409,44 @@ async def test_inject_tool_call_extra_content_skipped_for_non_openai_protocol():
 
     result = await hooks.after_request_conversion(
         supplier_body=supplier_body,
-        request_protocol="openai",
-        supplier_protocol="anthropic",
+        request_protocol="anthropic",
+        supplier_protocol="openai",
+    )
+
+    mock_kv_repo.get.assert_called()
+    assert "extra_content" in result["messages"][0]["tool_calls"][0]
+
+@pytest.mark.asyncio
+async def test_inject_tool_call_extra_content_skipped_for_non_openai_to_non_openai():
+    """Test that extra_content injection is skipped for non-openai to non-openai."""
+    mock_kv_repo = AsyncMock()
+    hooks = ProtocolConversionHooks(kv_repo=mock_kv_repo)
+
+    supplier_body = {
+        "messages": [
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {"id": "call-123", "type": "function", "function": {"name": "test"}},
+                ],
+            },
+        ],
+    }
+
+    result1 = await hooks.before_request_conversion(
+        body=supplier_body,
+        request_protocol="anthropic",
+        supplier_protocol="gemini",
+    )
+    result2 = await hooks.after_request_conversion(
+        supplier_body=supplier_body,
+        request_protocol="anthropic",
+        supplier_protocol="gemini",
     )
 
     mock_kv_repo.get.assert_not_called()
-    assert "extra_content" not in result["messages"][0]["tool_calls"][0]
+    assert "extra_content" not in result1["messages"][0]["tool_calls"][0]
+    assert "extra_content" not in result2["messages"][0]["tool_calls"][0]
 
 
 @pytest.mark.asyncio
@@ -422,8 +465,8 @@ async def test_inject_tool_call_extra_content_skipped_without_kv_repo():
         ],
     }
 
-    result = await hooks.after_request_conversion(
-        supplier_body=supplier_body,
+    result = await hooks.before_request_conversion(
+        body=supplier_body,
         request_protocol="openai",
         supplier_protocol="openai",
     )
@@ -450,8 +493,8 @@ async def test_inject_tool_call_extra_content_handles_missing_cache():
         ],
     }
 
-    result = await hooks.after_request_conversion(
-        supplier_body=supplier_body,
+    result = await hooks.before_request_conversion(
+        body=supplier_body,
         request_protocol="openai",
         supplier_protocol="openai",
     )
@@ -479,8 +522,8 @@ async def test_inject_tool_call_extra_content_handles_kv_error():
         ],
     }
 
-    result = await hooks.after_request_conversion(
-        supplier_body=supplier_body,
+    result = await hooks.before_request_conversion(
+        body=supplier_body,
         request_protocol="openai",
         supplier_protocol="openai",
     )
@@ -505,8 +548,8 @@ async def test_inject_tool_call_extra_content_skips_tool_call_without_id():
         ],
     }
 
-    result = await hooks.after_request_conversion(
-        supplier_body=supplier_body,
+    result = await hooks.before_request_conversion(
+        body=supplier_body,
         request_protocol="openai",
         supplier_protocol="openai",
     )
@@ -540,7 +583,7 @@ async def test_cache_tool_call_extra_content_from_stream():
     }
     chunk = f"data: {json.dumps(chunk_data)}\n\n".encode("utf-8")
 
-    result = await hooks.before_stream_chunk_conversion(
+    result = await hooks.after_stream_chunk_conversion(
         chunk=chunk,
         request_protocol="openai",
         supplier_protocol="gemini",
@@ -575,7 +618,7 @@ async def test_cache_tool_call_extra_content_skipped_without_kv_repo():
     }
     chunk = f"data: {json.dumps(chunk_data)}\n\n".encode("utf-8")
 
-    result = await hooks.before_stream_chunk_conversion(
+    result = await hooks.after_stream_chunk_conversion(
         chunk=chunk,
         request_protocol="openai",
         supplier_protocol="gemini",
@@ -631,8 +674,9 @@ async def test_cache_tool_call_extra_content_from_non_stream_response():
         },
     }
 
-    result = await hooks.before_response_conversion(
-        supplier_body=supplier_body,
+    result = await hooks.after_response_conversion(
+        response_body=supplier_body,
+        
         request_protocol="openai",
         supplier_protocol="gemini",
     )
@@ -678,8 +722,9 @@ async def test_cache_tool_call_extra_content_from_non_stream_response_multiple_t
         ],
     }
 
-    result = await hooks.before_response_conversion(
-        supplier_body=supplier_body,
+    result = await hooks.after_response_conversion(
+        response_body=supplier_body,
+        
         request_protocol="openai",
         supplier_protocol="gemini",
     )
@@ -713,8 +758,9 @@ async def test_cache_non_stream_response_skipped_without_kv_repo():
         ]
     }
 
-    result = await hooks.before_response_conversion(
-        supplier_body=supplier_body,
+    result = await hooks.after_response_conversion(
+        response_body=supplier_body,
+        
         request_protocol="openai",
         supplier_protocol="gemini",
     )
@@ -730,8 +776,9 @@ async def test_cache_non_stream_response_skipped_for_non_dict_body():
 
     supplier_body = "not a dict"
 
-    result = await hooks.before_response_conversion(
-        supplier_body=supplier_body,
+    result = await hooks.after_response_conversion(
+        response_body=supplier_body,
+        
         request_protocol="openai",
         supplier_protocol="gemini",
     )
@@ -761,8 +808,9 @@ async def test_cache_non_stream_response_skips_tool_call_without_id():
         ]
     }
 
-    result = await hooks.before_response_conversion(
-        supplier_body=supplier_body,
+    result = await hooks.after_response_conversion(
+        response_body=supplier_body,
+        
         request_protocol="openai",
         supplier_protocol="gemini",
     )
@@ -793,8 +841,9 @@ async def test_cache_non_stream_response_skips_tool_call_without_extra_content()
         ]
     }
 
-    result = await hooks.before_response_conversion(
-        supplier_body=supplier_body,
+    result = await hooks.after_response_conversion(
+        response_body=supplier_body,
+        
         request_protocol="openai",
         supplier_protocol="gemini",
     )
@@ -826,8 +875,9 @@ async def test_cache_non_stream_response_handles_kv_error():
         ]
     }
 
-    result = await hooks.before_response_conversion(
-        supplier_body=supplier_body,
+    result = await hooks.after_response_conversion(
+        response_body=supplier_body,
+        
         request_protocol="openai",
         supplier_protocol="gemini",
     )
