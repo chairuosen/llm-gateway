@@ -795,20 +795,30 @@ class ProxyService:
             provider_cached_output_price=getattr(provider_mapping, "cached_output_price", None)
             if provider_mapping
             else None,
+            provider_cache_creation_price=getattr(provider_mapping, "cache_creation_price", None)
+            if provider_mapping
+            else None,
+            model_cache_creation_price=getattr(model_mapping, "cache_creation_price", None),
         )
-        # Extract cached tokens from usage details
+        # Extract cached tokens from usage details.
+        # OpenAI semantic: cached_tokens are PART OF input_tokens (split billing).
+        # Anthropic semantic: cache_read_input_tokens and cache_creation_input_tokens are
+        # SEPARATE FROM input_tokens (additive billing).
         cached_input_tokens = None
+        cache_read_tokens = None
+        cache_creation_tokens = None
         if usage_details:
-            cached_input_tokens = (
-                usage_details.get("cached_tokens")
-                or usage_details.get("cache_read_input_tokens")
-            )
+            cached_input_tokens = usage_details.get("cached_tokens")
+            cache_read_tokens = usage_details.get("cache_read_input_tokens")
+            cache_creation_tokens = usage_details.get("cache_creation_input_tokens")
         cost = calculate_cost_from_billing(
             billing=billing,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             image_count=image_count,
             cached_input_tokens=cached_input_tokens,
+            cache_read_tokens=cache_read_tokens,
+            cache_creation_tokens=cache_creation_tokens,
         )
         log_data = RequestLogCreate(
             request_time=request_time,
@@ -1402,20 +1412,30 @@ class ProxyService:
                     provider_cached_output_price=getattr(provider_mapping, "cached_output_price", None)
                     if provider_mapping
                     else None,
+                    provider_cache_creation_price=getattr(provider_mapping, "cache_creation_price", None)
+                    if provider_mapping
+                    else None,
+                    model_cache_creation_price=getattr(model_mapping, "cache_creation_price", None),
                 )
-                # Extract cached tokens from stream usage details
+                # Extract cached tokens from stream usage details.
+                # OpenAI semantic: cached_tokens are PART OF input_tokens (split billing).
+                # Anthropic semantic: cache_read_input_tokens and cache_creation_input_tokens are
+                # SEPARATE FROM input_tokens (additive billing).
                 stream_cached_input_tokens = None
+                stream_cache_read_tokens = None
+                stream_cache_creation_tokens = None
                 if usage_details:
-                    stream_cached_input_tokens = (
-                        usage_details.get("cached_tokens")
-                        or usage_details.get("cache_read_input_tokens")
-                    )
+                    stream_cached_input_tokens = usage_details.get("cached_tokens")
+                    stream_cache_read_tokens = usage_details.get("cache_read_input_tokens")
+                    stream_cache_creation_tokens = usage_details.get("cache_creation_input_tokens")
                 cost = calculate_cost_from_billing(
                     billing=billing,
                     input_tokens=input_tokens,
                     output_tokens=usage_result.output_tokens,
                     image_count=image_count,
                     cached_input_tokens=stream_cached_input_tokens,
+                    cache_read_tokens=stream_cache_read_tokens,
+                    cache_creation_tokens=stream_cache_creation_tokens,
                 )
                 raw_stream_text = (
                     b"".join(raw_stream_chunks).decode("utf-8", errors="replace")

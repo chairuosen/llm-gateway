@@ -1746,13 +1746,29 @@ class SDKStreamConverter(IStreamConverter):
                             "completion_tokens": output_tokens,
                             "total_tokens": input_tokens + output_tokens,
                         }
-                        # Include cache tokens if available
-                        if "cache_creation_input_tokens" in usage_data:
+                        # Include Anthropic cache tokens in both OpenAI and native fields.
+                        # prompt_tokens_details.cached_tokens follows OpenAI convention
+                        # (maps cache_read_input_tokens for client compatibility).
+                        # The original Anthropic fields are also preserved so that the
+                        # gateway's billing layer can distinguish read vs creation costs.
+                        if (
+                            "cache_creation_input_tokens" in usage_data
+                            or "cache_read_input_tokens" in usage_data
+                        ):
                             final_usage["prompt_tokens_details"] = {
                                 "cached_tokens": usage_data.get(
                                     "cache_read_input_tokens", 0
                                 ),
                             }
+                            # Preserve Anthropic-specific fields for accurate billing
+                            if usage_data.get("cache_creation_input_tokens"):
+                                final_usage["cache_creation_input_tokens"] = usage_data[
+                                    "cache_creation_input_tokens"
+                                ]
+                            if usage_data.get("cache_read_input_tokens"):
+                                final_usage["cache_read_input_tokens"] = usage_data[
+                                    "cache_read_input_tokens"
+                                ]
 
                     yield _encode_sse_json(
                         self._create_openai_chunk(response_id, model, {}, finish_reason)

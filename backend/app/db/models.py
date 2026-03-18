@@ -157,6 +157,10 @@ class ModelMapping(Base):
     cache_billing_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     cached_input_price: Mapped[Optional[float]] = mapped_column(Numeric(12, 4), nullable=True)
     cached_output_price: Mapped[Optional[float]] = mapped_column(Numeric(12, 4), nullable=True)
+    # Anthropic prompt cache creation price (USD per 1M tokens).
+    # Charged when tokens are written to the prompt cache for the first time.
+    # Typically ~25% more than input_price (e.g. $3.75/1M vs $3/1M for claude-3-5-sonnet).
+    cache_creation_price: Mapped[Optional[float]] = mapped_column(Numeric(12, 4), nullable=True)
     # Is Active
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     # Creation Time
@@ -220,6 +224,10 @@ class ModelMappingProvider(Base):
     cache_billing_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     cached_input_price: Mapped[Optional[float]] = mapped_column(Numeric(12, 4), nullable=True)
     cached_output_price: Mapped[Optional[float]] = mapped_column(Numeric(12, 4), nullable=True)
+    # Anthropic prompt cache creation price (USD per 1M tokens).
+    # Charged when tokens are written to the prompt cache for the first time.
+    # Typically ~25% more than input_price (e.g. $3.75/1M vs $3/1M for claude-3-5-sonnet).
+    cache_creation_price: Mapped[Optional[float]] = mapped_column(Numeric(12, 4), nullable=True)
     # Priority (Lower value means higher priority)
     priority: Mapped[int] = mapped_column(Integer, default=0)
     # Weight (Used for weighted round-robin, currently unused)

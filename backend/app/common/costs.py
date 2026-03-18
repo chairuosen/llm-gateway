@@ -52,6 +52,8 @@ class CostBreakdown:
     output_cost: float
     cached_input_cost: float = 0.0
     cached_output_cost: float = 0.0
+    # Anthropic-specific: cost for cache_creation_input_tokens (writing to prompt cache)
+    cache_creation_cost: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -65,6 +67,9 @@ class ResolvedBilling:
     cache_billing_enabled: bool = False
     cached_input_price: float | None = None
     cached_output_price: float | None = None
+    # Anthropic-specific: price for cache_creation_input_tokens (USD per 1M tokens)
+    # Typically ~25% more than the regular input_price (e.g. $3.75/1M vs $3/1M for claude-3-5-sonnet)
+    cache_creation_price: float | None = None
 
 
 def resolve_price(
@@ -164,21 +169,30 @@ def _resolve_cache_fields(
     provider_cache_billing_enabled: Optional[bool],
     provider_cached_input_price: Optional[float],
     provider_cached_output_price: Optional[float],
+    provider_cache_creation_price: Optional[float] = None,
     model_cache_billing_enabled: Optional[bool],
     model_cached_input_price: Optional[float],
     model_cached_output_price: Optional[float],
+    model_cache_creation_price: Optional[float] = None,
     is_provider_source: bool,
-) -> tuple[bool, float | None, float | None]:
-    """Resolve cache billing fields from provider > model fallback."""
+) -> tuple[bool, float | None, float | None, float | None]:
+    """Resolve cache billing fields from provider > model fallback.
+
+    Returns (enabled, cached_in_price, cached_out_price, cache_creation_price).
+    cache_creation_price is used for Anthropic's cache_creation_input_tokens
+    (writing to prompt cache, typically ~25% surcharge over regular input_price).
+    """
     if is_provider_source:
         enabled = bool(provider_cache_billing_enabled)
         cached_in = provider_cached_input_price
         cached_out = provider_cached_output_price
+        creation = provider_cache_creation_price
     else:
         enabled = bool(model_cache_billing_enabled)
         cached_in = model_cached_input_price
         cached_out = model_cached_output_price
-    return enabled, cached_in, cached_out
+        creation = model_cache_creation_price
+    return enabled, cached_in, cached_out, creation
 
 
 def resolve_billing(
@@ -193,6 +207,7 @@ def resolve_billing(
     model_cache_billing_enabled: Optional[bool] = None,
     model_cached_input_price: Optional[float] = None,
     model_cached_output_price: Optional[float] = None,
+    model_cache_creation_price: Optional[float] = None,
     provider_billing_mode: Optional[str],
     provider_per_request_price: Optional[float],
     provider_per_image_price: Optional[float] = None,
@@ -202,6 +217,7 @@ def resolve_billing(
     provider_cache_billing_enabled: Optional[bool] = None,
     provider_cached_input_price: Optional[float] = None,
     provider_cached_output_price: Optional[float] = None,
+    provider_cache_creation_price: Optional[float] = None,
 ) -> ResolvedBilling:
     """
     Resolve effective billing config.
@@ -219,6 +235,7 @@ def resolve_billing(
         provider_cache_billing_enabled = None
         provider_cached_input_price = None
         provider_cached_output_price = None
+        provider_cache_creation_price = None
 
     # Determine effective billing source
     if provider_billing_mode and provider_billing_mode != BILLING_MODE_INHERIT_MODEL_DEFAULT:
@@ -262,13 +279,15 @@ def resolve_billing(
         )
 
     # Resolve cache billing for token-based modes
-    cache_enabled, cached_in_price, cached_out_price = _resolve_cache_fields(
+    cache_enabled, cached_in_price, cached_out_price, creation_price = _resolve_cache_fields(
         provider_cache_billing_enabled=provider_cache_billing_enabled,
         provider_cached_input_price=provider_cached_input_price,
         provider_cached_output_price=provider_cached_output_price,
+        provider_cache_creation_price=provider_cache_creation_price,
         model_cache_billing_enabled=model_cache_billing_enabled,
         model_cached_input_price=model_cached_input_price,
         model_cached_output_price=model_cached_output_price,
+        model_cache_creation_price=model_cache_creation_price,
         is_provider_source=is_provider_source if price_source is not None else False,
     )
 
@@ -288,6 +307,7 @@ def resolve_billing(
             cache_billing_enabled=cache_enabled,
             cached_input_price=eff_cached_in,
             cached_output_price=eff_cached_out,
+            cache_creation_price=creation_price,
         )
 
     # Default: token_flat (legacy directional pricing supported)
@@ -305,10 +325,12 @@ def resolve_billing(
             cache_enabled = True
             cached_in_price = provider_cached_input_price
             cached_out_price = provider_cached_output_price
+            creation_price = provider_cache_creation_price
         elif model_cache_billing_enabled:
             cache_enabled = True
             cached_in_price = model_cached_input_price
             cached_out_price = model_cached_output_price
+            creation_price = model_cache_creation_price
 
     return ResolvedBilling(
         billing_mode=BILLING_MODE_TOKEN_FLAT,
@@ -318,6 +340,7 @@ def resolve_billing(
         cache_billing_enabled=cache_enabled,
         cached_input_price=cached_in_price,
         cached_output_price=cached_out_price,
+        cache_creation_price=creation_price,
     )
 
 
@@ -327,8 +350,12 @@ def calculate_cost_from_billing(
     output_tokens: int | None,
     billing: ResolvedBilling,
     image_count: int | None = None,
+    # OpenAI-style: cached_input_tokens are PART OF input_tokens (split billing)
     cached_input_tokens: int | None = None,
     cached_output_tokens: int | None = None,
+    # Anthropic-style: these are SEPARATE FROM input_tokens (additive billing)
+    cache_read_tokens: int | None = None,
+    cache_creation_tokens: int | None = None,
 ) -> CostBreakdown:
     if billing.billing_mode == BILLING_MODE_PER_REQUEST:
         total = _q4(_to_decimal(billing.per_request_price))
@@ -349,6 +376,9 @@ def calculate_cost_from_billing(
         cached_output_tokens=cached_output_tokens,
         cached_input_price=billing.cached_input_price,
         cached_output_price=billing.cached_output_price,
+        cache_read_tokens=cache_read_tokens,
+        cache_creation_tokens=cache_creation_tokens,
+        cache_creation_price=billing.cache_creation_price,
     )
 
 
@@ -359,23 +389,40 @@ def calculate_cost(
     input_price: float,
     output_price: float,
     cache_billing_enabled: bool = False,
+    # OpenAI-style: cached_input_tokens are PART OF input_tokens (split billing).
+    # The gateway subtracts these from input_tokens and bills each portion at its rate.
     cached_input_tokens: int | None = None,
     cached_output_tokens: int | None = None,
     cached_input_price: float | None = None,
     cached_output_price: float | None = None,
+    # Anthropic-style: these are SEPARATE FROM (not included in) input_tokens.
+    # cache_read_tokens: tokens read from prompt cache, billed at cached_input_price.
+    # cache_creation_tokens: tokens written to prompt cache, billed at cache_creation_price
+    #   (typically ~25% surcharge, e.g. $3.75/1M vs $3/1M for claude-3-5-sonnet).
+    cache_read_tokens: int | None = None,
+    cache_creation_tokens: int | None = None,
+    cache_creation_price: float | None = None,
 ) -> CostBreakdown:
     in_tokens = int(input_tokens or 0)
     out_tokens = int(output_tokens or 0)
 
     cached_in_cost = Decimal("0")
     cached_out_cost = Decimal("0")
+    cache_creation_cost_val = Decimal("0")
 
-    if cache_billing_enabled and (cached_input_tokens or cached_output_tokens):
-        # Split input tokens
+    has_cache = cache_billing_enabled and (
+        cached_input_tokens or cached_output_tokens
+        or cache_read_tokens or cache_creation_tokens
+    )
+    if has_cache:
+        # Effective prices (fall back to regular price if not configured)
+        eff_cached_in_price = cached_input_price if cached_input_price is not None else input_price
+        eff_cached_out_price = cached_output_price if cached_output_price is not None else output_price
+        eff_creation_price = cache_creation_price if cache_creation_price is not None else input_price
+
+        # OpenAI-style: cached_input_tokens are PART OF input_tokens (split billing)
         c_in = min(int(cached_input_tokens or 0), in_tokens)
         non_cached_in = max(in_tokens - c_in, 0)
-        # Effective cached input price: fall back to input_price if not set
-        eff_cached_in_price = cached_input_price if cached_input_price is not None else input_price
         cached_in_cost = _q4(
             (Decimal(c_in) / _ONE_MILLION) * _to_decimal(eff_cached_in_price)
         )
@@ -384,10 +431,28 @@ def calculate_cost(
         )
         input_cost = _q4(regular_in_cost + cached_in_cost)
 
-        # Split output tokens
+        # Anthropic-style: cache_read_tokens are SEPARATE FROM input_tokens (additive)
+        # Billed at cached_input_price (same rate as OpenAI cached tokens)
+        if cache_read_tokens:
+            c_read = int(cache_read_tokens)
+            read_cost = _q4(
+                (Decimal(c_read) / _ONE_MILLION) * _to_decimal(eff_cached_in_price)
+            )
+            cached_in_cost = _q4(cached_in_cost + read_cost)
+            input_cost = _q4(input_cost + read_cost)
+
+        # Anthropic-style: cache_creation_tokens are SEPARATE FROM input_tokens (additive)
+        # Billed at cache_creation_price (typically 25% surcharge over input_price)
+        if cache_creation_tokens:
+            c_create = int(cache_creation_tokens)
+            cache_creation_cost_val = _q4(
+                (Decimal(c_create) / _ONE_MILLION) * _to_decimal(eff_creation_price)
+            )
+            input_cost = _q4(input_cost + cache_creation_cost_val)
+
+        # Output token split (applies to both OpenAI and Anthropic)
         c_out = min(int(cached_output_tokens or 0), out_tokens)
         non_cached_out = max(out_tokens - c_out, 0)
-        eff_cached_out_price = cached_output_price if cached_output_price is not None else output_price
         cached_out_cost = _q4(
             (Decimal(c_out) / _ONE_MILLION) * _to_decimal(eff_cached_out_price)
         )
@@ -407,4 +472,5 @@ def calculate_cost(
         output_cost=float(output_cost),
         cached_input_cost=float(cached_in_cost),
         cached_output_cost=float(cached_out_cost),
+        cache_creation_cost=float(cache_creation_cost_val),
     )
