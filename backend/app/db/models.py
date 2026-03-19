@@ -326,6 +326,8 @@ class RequestLog(Base):
     # Cached cost fields (USD, 4 decimals)
     cached_input_cost: Mapped[Optional[float]] = mapped_column(Numeric(12, 4), nullable=True)
     cached_output_cost: Mapped[Optional[float]] = mapped_column(Numeric(12, 4), nullable=True)
+    # Anthropic cache creation cost (USD, 4 decimals)
+    cache_creation_cost: Mapped[Optional[float]] = mapped_column(Numeric(12, 4), nullable=True)
     # Price source: SupplierOverride / ModelFallback / DefaultZero
     price_source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     # Request Headers (JSON format, sanitized)

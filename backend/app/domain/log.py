@@ -58,6 +58,7 @@ class RequestLogCreate(RequestLogBase):
     # Cached cost fields
     cached_input_cost: Optional[float] = Field(None, description="Cached input cost ($)")
     cached_output_cost: Optional[float] = Field(None, description="Cached output cost ($)")
+    cache_creation_cost: Optional[float] = Field(None, description="Anthropic cache creation cost ($)")
     # Price source: SupplierOverride / ModelFallback / DefaultZero
     price_source: Optional[str] = Field(None, description="Price source")
     # Request Headers (Sanitized)
