@@ -653,7 +653,7 @@
       },
       "streamRequest": "Stream Request",
       "viewDetails": "View Details",
-      "costTooltip": "Input: {input}\nOutput: {output}",
+      "costTooltip": "Input: {input}\nOutput: {output}\nCache Creation: {cacheCreation}",
       "inTokens": "In: {count}",
       "outTokens": "Out: {count}",
       "retry": "Retry: {count}"
@@ -707,7 +707,13 @@
       "retries": "Retries",
       "tokens": "Tokens",
       "cost": "Cost",
-      "costTooltip": "Input: {input}\nOutput: {output}",
+      "costTooltip": "Input: {input}\nOutput: {output}\nCache Creation: {cacheCreation}",
+      "costBreakdown": "Cost Breakdown",
+      "costBreakdownInput": "Input",
+      "costBreakdownOutput": "Output",
+      "costBreakdownCachedInput": "Cache Write",
+      "costBreakdownCachedOutput": "Cache Read",
+      "costBreakdownCacheCreation": "Cache Creation",
       "tokenUsageDetails": "Token Usage Details",
       "tokenUsage": {
         "cachedTokens": "Cached Tokens",

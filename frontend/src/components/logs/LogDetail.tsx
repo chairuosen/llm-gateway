@@ -332,6 +332,7 @@ export function LogDetail({ log }: LogDetailProps) {
                 title={t("detail.costTooltip", {
                   input: formatUsd(log.input_cost),
                   output: formatUsd(log.output_cost),
+                  cacheCreation: formatUsd(log.cache_creation_cost),
                 })}
               >
                 <span className="text-muted-foreground">
@@ -343,6 +344,46 @@ export function LogDetail({ log }: LogDetailProps) {
               </div>
             </div>
           </div>
+
+          {(log.input_cost != null || log.cache_creation_cost != null || log.cached_input_cost != null) && (
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <div className="mb-2 text-sm font-medium">
+                {t("detail.costBreakdown")}
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3 lg:grid-cols-5">
+                {log.input_cost != null && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground">{t("detail.costBreakdownInput")}</span>
+                    <span className="font-medium font-mono">{formatUsd(log.input_cost)}</span>
+                  </div>
+                )}
+                {log.output_cost != null && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground">{t("detail.costBreakdownOutput")}</span>
+                    <span className="font-medium font-mono">{formatUsd(log.output_cost)}</span>
+                  </div>
+                )}
+                {(log.cached_input_cost ?? 0) > 0 && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground">{t("detail.costBreakdownCachedInput")}</span>
+                    <span className="font-medium font-mono">{formatUsd(log.cached_input_cost)}</span>
+                  </div>
+                )}
+                {(log.cached_output_cost ?? 0) > 0 && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground">{t("detail.costBreakdownCachedOutput")}</span>
+                    <span className="font-medium font-mono">{formatUsd(log.cached_output_cost)}</span>
+                  </div>
+                )}
+                {(log.cache_creation_cost ?? 0) > 0 && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground">{t("detail.costBreakdownCacheCreation")}</span>
+                    <span className="font-medium font-mono">{formatUsd(log.cache_creation_cost)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {tokenUsageItems.length > 0 && (
             <div className="rounded-lg border bg-muted/30 p-3">

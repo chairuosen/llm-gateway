@@ -653,7 +653,7 @@
       },
       "streamRequest": "流式请求",
       "viewDetails": "查看详情",
-      "costTooltip": "输入：{input}\n输出：{output}",
+      "costTooltip": "输入：{input}\n输出：{output}\n缓存创建：{cacheCreation}",
       "inTokens": "输入：{count}",
       "outTokens": "输出：{count}",
       "retry": "重试：{count}"
@@ -707,7 +707,13 @@
       "retries": "重试",
       "tokens": "Tokens",
       "cost": "成本",
-      "costTooltip": "输入：{input}\n输出：{output}",
+      "costTooltip": "输入：{input}\n输出：{output}\n缓存创建：{cacheCreation}",
+      "costBreakdown": "费用明细",
+      "costBreakdownInput": "输入",
+      "costBreakdownOutput": "输出",
+      "costBreakdownCachedInput": "缓存写入",
+      "costBreakdownCachedOutput": "缓存读取",
+      "costBreakdownCacheCreation": "缓存创建",
       "tokenUsageDetails": "Token 用量详情",
       "tokenUsage": {
         "cachedTokens": "缓存 Tokens",

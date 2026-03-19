@@ -99,9 +99,15 @@ export function LogList({ logs, onView }: LogListProps) {
                 title={t('list.costTooltip', {
                   input: formatUsd(log.input_cost),
                   output: formatUsd(log.output_cost),
+                  cacheCreation: formatUsd(log.cache_creation_cost),
                 })}
               >
-                {formatUsd(log.total_cost)}
+                <div>{formatUsd(log.total_cost)}</div>
+                {(log.cache_creation_cost ?? 0) > 0 && (
+                  <div className="text-muted-foreground opacity-70">
+                    +{formatUsd(log.cache_creation_cost)} cache
+                  </div>
+                )}
               </TableCell>
               <TableCell>
                 <div className="flex flex-col items-start gap-1">

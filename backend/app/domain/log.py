@@ -129,6 +129,9 @@ class RequestLogSummary(BaseModel):
     total_cost: Optional[float] = None
     input_cost: Optional[float] = None
     output_cost: Optional[float] = None
+    cached_input_cost: Optional[float] = None
+    cached_output_cost: Optional[float] = None
+    cache_creation_cost: Optional[float] = None
     response_status: Optional[int] = None
     trace_id: Optional[str] = None
     is_stream: bool = False
@@ -145,7 +148,7 @@ class RequestLogSummary(BaseModel):
 
 class RequestLogResponse(RequestLogBase):
     """Request Log Response Model (List View)"""
-    
+
     id: int = Field(..., description="Log ID")
     retry_count: int = Field(0, description="Retry Count")
     matched_provider_count: Optional[int] = None
@@ -156,10 +159,13 @@ class RequestLogResponse(RequestLogBase):
     total_cost: Optional[float] = None
     input_cost: Optional[float] = None
     output_cost: Optional[float] = None
+    cached_input_cost: Optional[float] = None
+    cached_output_cost: Optional[float] = None
+    cache_creation_cost: Optional[float] = None
     response_status: Optional[int] = None
     trace_id: Optional[str] = None
     is_stream: bool = False
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 

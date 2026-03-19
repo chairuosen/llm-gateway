@@ -21,6 +21,9 @@ export interface RequestLog {
   total_cost?: number | null;
   input_cost?: number | null;
   output_cost?: number | null;
+  cached_input_cost?: number | null;
+  cached_output_cost?: number | null;
+  cache_creation_cost?: number | null;
   response_status?: number;
   trace_id?: string;
   is_stream?: boolean;
