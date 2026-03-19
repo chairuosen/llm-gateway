@@ -629,6 +629,10 @@ class ModelService:
                         per_request_price=pm.per_request_price,
                         per_image_price=pm.per_image_price,
                         tiered_pricing=pm.tiered_pricing,
+                        cache_billing_enabled=pm.cache_billing_enabled,
+                        cached_input_price=pm.cached_input_price,
+                        cached_output_price=pm.cached_output_price,
+                        cache_creation_price=getattr(pm, "cache_creation_price", None),
                         priority=pm.priority,
                         weight=pm.weight,
                         is_active=pm.is_active
@@ -648,6 +652,10 @@ class ModelService:
                     per_request_price=m.per_request_price,
                     per_image_price=m.per_image_price,
                     tiered_pricing=m.tiered_pricing,
+                    cache_billing_enabled=m.cache_billing_enabled,
+                    cached_input_price=m.cached_input_price,
+                    cached_output_price=m.cached_output_price,
+                    cache_creation_price=getattr(m, "cache_creation_price", None),
                     providers=providers_export
                 )
             )
@@ -711,6 +719,10 @@ class ModelService:
                             per_request_price=p_item.per_request_price,
                             per_image_price=p_item.per_image_price,
                             tiered_pricing=p_item.tiered_pricing,
+                            cache_billing_enabled=p_item.cache_billing_enabled,
+                            cached_input_price=p_item.cached_input_price,
+                            cached_output_price=p_item.cached_output_price,
+                            cache_creation_price=p_item.cache_creation_price,
                             priority=p_item.priority,
                             weight=p_item.weight,
                             is_active=p_item.is_active

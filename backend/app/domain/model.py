@@ -67,6 +67,7 @@ class ModelMappingCreate(ModelMappingBase):
     cache_billing_enabled: Optional[bool] = Field(None, description="Enable cache billing")
     cached_input_price: Optional[float] = Field(None, ge=0, description="Cached input price ($/1M tokens)")
     cached_output_price: Optional[float] = Field(None, ge=0, description="Cached output price ($/1M tokens)")
+    cache_creation_price: Optional[float] = Field(None, ge=0, description="Anthropic cache creation price ($/1M tokens)")
 
     @model_validator(mode="after")
     def _validate_billing(self) -> "ModelMappingCreate":
@@ -222,6 +223,7 @@ class ModelMappingProviderCreate(ModelMappingProviderBase):
     )
     cached_input_price: Optional[float] = Field(None, ge=0, description="Cached input price ($/1M tokens)")
     cached_output_price: Optional[float] = Field(None, ge=0, description="Cached output price ($/1M tokens)")
+    cache_creation_price: Optional[float] = Field(None, ge=0, description="Anthropic cache creation price ($/1M tokens)")
 
     @model_validator(mode="after")
     def _validate_billing(self) -> "ModelMappingProviderCreate":
@@ -348,6 +350,7 @@ class ModelProviderExport(BaseModel):
     cache_billing_enabled: Optional[bool] = None
     cached_input_price: Optional[float] = None
     cached_output_price: Optional[float] = None
+    cache_creation_price: Optional[float] = None
     priority: int = 0
     weight: int = 1
     is_active: bool = True
