@@ -14,3 +14,4 @@
 | 2026-03-19 | feat | 日志列表和详情页展示缓存费用明细 | — |
 | 2026-03-19 | feat | API Key 增加日/周/月消费统计与限费拦截 | [详情](docs/changes/2026-03-19-api-key-spending-limits.md) |
 | 2026-03-19 | feat | 日志列表增加 cache read/creation token 数量展示 | [详情](docs/changes/2026-03-19-log-cache-token-counts.md) |
+| 2026-03-19 | fix | 日志列表 API 补全 cache token 字段映射（log_service / log_repo） | — |
