@@ -104,6 +104,8 @@ class LogService:
                 total_time_ms=s.total_time_ms,
                 input_tokens=s.input_tokens,
                 output_tokens=s.output_tokens,
+                cache_read_tokens=s.cache_read_tokens,
+                cache_creation_tokens=s.cache_creation_tokens,
                 total_cost=s.total_cost,
                 input_cost=s.input_cost,
                 output_cost=s.output_cost,
