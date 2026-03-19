@@ -18,6 +18,8 @@ export interface RequestLog {
   total_time_ms?: number;
   input_tokens?: number;
   output_tokens?: number;
+  cache_read_tokens?: number | null;
+  cache_creation_tokens?: number | null;
   total_cost?: number | null;
   input_cost?: number | null;
   output_cost?: number | null;

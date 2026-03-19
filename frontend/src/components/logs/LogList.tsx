@@ -92,6 +92,16 @@ export function LogList({ logs, onView }: LogListProps) {
                   <span className="text-muted-foreground">
                     {t('list.outTokens', { count: log.output_tokens || 0 })}
                   </span>
+                  {(log.cache_read_tokens ?? 0) > 0 && (
+                    <span className="text-blue-500 opacity-80">
+                      {t('list.cacheReadTokens', { count: log.cache_read_tokens ?? 0 })}
+                    </span>
+                  )}
+                  {(log.cache_creation_tokens ?? 0) > 0 && (
+                    <span className="text-orange-500 opacity-80">
+                      {t('list.cacheCreationTokens', { count: log.cache_creation_tokens ?? 0 })}
+                    </span>
+                  )}
                 </div>
               </TableCell>
               <TableCell

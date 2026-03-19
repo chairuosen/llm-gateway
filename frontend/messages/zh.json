@@ -665,7 +665,9 @@
       "costTooltip": "输入：{input}\n输出：{output}\n缓存创建：{cacheCreation}",
       "inTokens": "输入：{count}",
       "outTokens": "输出：{count}",
-      "retry": "重试：{count}"
+      "retry": "重试：{count}",
+      "cacheReadTokens": "缓存读取 {count}",
+      "cacheCreationTokens": "缓存写入 {count}"
     },
     "filters": {
       "all": "全部",

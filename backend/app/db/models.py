@@ -325,6 +325,10 @@ class RequestLog(Base):
     input_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     # Output Token Count
     output_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # Cache read token count (Anthropic: cache_read_input_tokens)
+    cache_read_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # Cache creation token count (Anthropic: cache_creation_input_tokens)
+    cache_creation_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     # Cost fields (USD, 4 decimals)
     total_cost: Mapped[Optional[float]] = mapped_column(Numeric(12, 4), nullable=True)
     input_cost: Mapped[Optional[float]] = mapped_column(Numeric(12, 4), nullable=True)

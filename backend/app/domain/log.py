@@ -51,6 +51,10 @@ class RequestLogCreate(RequestLogBase):
     input_tokens: Optional[int] = Field(None, description="Input Token Count")
     # Output Token Count
     output_tokens: Optional[int] = Field(None, description="Output Token Count")
+    # Cache read token count (Anthropic cache_read_input_tokens)
+    cache_read_tokens: Optional[int] = Field(None, description="Cache read token count")
+    # Cache creation token count (Anthropic cache_creation_input_tokens)
+    cache_creation_tokens: Optional[int] = Field(None, description="Cache creation token count")
     # Cost fields (USD, 4 decimals)
     total_cost: Optional[float] = Field(None, description="Total cost ($)")
     input_cost: Optional[float] = Field(None, description="Input cost ($)")
@@ -126,6 +130,8 @@ class RequestLogSummary(BaseModel):
     total_time_ms: Optional[int] = None
     input_tokens: Optional[int] = None
     output_tokens: Optional[int] = None
+    cache_read_tokens: Optional[int] = None
+    cache_creation_tokens: Optional[int] = None
     total_cost: Optional[float] = None
     input_cost: Optional[float] = None
     output_cost: Optional[float] = None
@@ -156,6 +162,8 @@ class RequestLogResponse(RequestLogBase):
     total_time_ms: Optional[int] = None
     input_tokens: Optional[int] = None
     output_tokens: Optional[int] = None
+    cache_read_tokens: Optional[int] = None
+    cache_creation_tokens: Optional[int] = None
     total_cost: Optional[float] = None
     input_cost: Optional[float] = None
     output_cost: Optional[float] = None

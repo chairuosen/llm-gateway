@@ -665,7 +665,9 @@
       "costTooltip": "Input: {input}\nOutput: {output}\nCache Creation: {cacheCreation}",
       "inTokens": "In: {count}",
       "outTokens": "Out: {count}",
-      "retry": "Retry: {count}"
+      "retry": "Retry: {count}",
+      "cacheReadTokens": "cache-r {count}",
+      "cacheCreationTokens": "cache-w {count}"
     },
     "filters": {
       "all": "All",
