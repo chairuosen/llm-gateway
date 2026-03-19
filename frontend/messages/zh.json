@@ -608,7 +608,12 @@
       "firstToken": "首 token",
       "status": "状态",
       "response": "响应",
-      "noResponse": "暂无响应。"
+      "noResponse": "暂无响应。",
+      "allProviders": "全部供应商",
+      "selectProvider": "选择供应商",
+      "testing": "测试中...",
+      "batchTesting": "正在批量测试...",
+      "results": "测试结果"
     },
     "importExport": {
       "invalidFile": "导入文件无效：期望为 JSON 数组",

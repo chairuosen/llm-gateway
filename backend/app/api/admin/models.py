@@ -89,6 +89,7 @@ class ModelTestRequest(BaseModel):
 
     protocol: str
     stream: bool = False
+    provider_id: Optional[int] = None
 
 
 class ModelTestResponse(BaseModel):
@@ -493,6 +494,7 @@ async def test_model(
                 method="POST",
                 headers=headers,
                 body=body,
+                force_provider_id=data.provider_id,
             )
             content = await _collect_stream_text(
                 stream=stream_gen,
@@ -522,6 +524,7 @@ async def test_model(
             headers=headers,
             body=body,
             force_parse_response=True,
+            force_provider_id=data.provider_id,
         )
         elapsed_ms = int((time.monotonic() - start) * 1000)
         normalized = _normalize_response_body(response.body)

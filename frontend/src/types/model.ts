@@ -305,6 +305,7 @@ export interface ModelMatchProvider {
 export interface ModelTestRequest {
   protocol: ProtocolType;
   stream: boolean;
+  provider_id?: number;
 }
 
 export interface ModelTestResponse {

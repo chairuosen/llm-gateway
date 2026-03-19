@@ -351,6 +351,7 @@ class ProxyService:
         body: dict[str, Any],
         *,
         force_parse_response: bool = False,
+        force_provider_id: Optional[int] = None,
     ) -> tuple[ProviderResponse, dict[str, Any]]:
         """
         Process Proxy Request
@@ -395,6 +396,16 @@ class ProxyService:
             headers=headers,
             body=body,
         )
+
+        # Filter to specific provider if requested
+        if force_provider_id is not None:
+            candidates = [c for c in candidates if c.provider_id == force_provider_id]
+            if not candidates:
+                raise ServiceError(
+                    message=f"Specified provider (id={force_provider_id}) is not available for this model",
+                    code="no_available_provider",
+                )
+
         token_counter = get_token_counter(protocol)
 
         # Extract image count for per-image billing
@@ -900,6 +911,8 @@ class ProxyService:
         method: str,
         headers: dict[str, str],
         body: dict[str, Any],
+        *,
+        force_provider_id: Optional[int] = None,
     ) -> tuple[ProviderResponse, AsyncGenerator[bytes, None], dict[str, Any]]:
         """
         Process Streaming Proxy Request
@@ -937,6 +950,15 @@ class ProxyService:
             headers=headers,
             body=body,
         )
+
+        # Filter to specific provider if requested
+        if force_provider_id is not None:
+            candidates = [c for c in candidates if c.provider_id == force_provider_id]
+            if not candidates:
+                raise ServiceError(
+                    message=f"Specified provider (id={force_provider_id}) is not available for this model",
+                    code="no_available_provider",
+                )
 
         # Extract image count for per-image billing
         image_count: Optional[int] = None

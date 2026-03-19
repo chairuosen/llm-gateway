@@ -608,7 +608,12 @@
       "firstToken": "First Token",
       "status": "Status",
       "response": "Response",
-      "noResponse": "No response yet."
+      "noResponse": "No response yet.",
+      "allProviders": "All Providers",
+      "selectProvider": "Select Provider",
+      "testing": "Testing...",
+      "batchTesting": "Batch testing...",
+      "results": "Results"
     },
     "importExport": {
       "invalidFile": "Invalid import file: expected a JSON array",
