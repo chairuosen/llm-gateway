@@ -16,6 +16,7 @@ from app.db.models import RequestLog as RequestLogORM
 from app.db.models import RequestLogDetail as RequestLogDetailORM
 from app.domain.log import (
     ApiKeyMonthlyCost,
+    ApiKeyPeriodCosts,
     LogCostByModel,
     LogCostStatsQuery,
     LogCostStatsResponse,
@@ -845,3 +846,89 @@ class SQLAlchemyLogRepository(LogRepository):
             )
             for row in rows
         ]
+
+    async def get_api_key_period_costs(
+        self, api_key_ids: list[int]
+    ) -> list[ApiKeyPeriodCosts]:
+        """
+        Get daily/weekly/monthly costs for the given API Key IDs in a single query.
+        Uses conditional aggregation with month_start as the outermost cutoff.
+        """
+        if not api_key_ids:
+            return []
+
+        now = utc_now()
+        # Start of today (UTC)
+        day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Start of this week (Monday, UTC)
+        week_start = (now - timedelta(days=now.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        # Start of this month (UTC)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        day_start_naive = to_utc_naive(day_start)
+        week_start_naive = to_utc_naive(week_start)
+        month_start_naive = to_utc_naive(month_start)
+
+        daily_cost = func.coalesce(
+            func.sum(
+                case(
+                    (RequestLogORM.request_time >= day_start_naive, RequestLogORM.total_cost),
+                    else_=0,
+                )
+            ),
+            0,
+        )
+        weekly_cost = func.coalesce(
+            func.sum(
+                case(
+                    (RequestLogORM.request_time >= week_start_naive, RequestLogORM.total_cost),
+                    else_=0,
+                )
+            ),
+            0,
+        )
+        monthly_cost = func.coalesce(
+            func.sum(
+                case(
+                    (RequestLogORM.request_time >= month_start_naive, RequestLogORM.total_cost),
+                    else_=0,
+                )
+            ),
+            0,
+        )
+
+        stmt = (
+            select(
+                RequestLogORM.api_key_id.label("api_key_id"),
+                daily_cost.label("daily_cost"),
+                weekly_cost.label("weekly_cost"),
+                monthly_cost.label("monthly_cost"),
+            )
+            .where(
+                and_(
+                    RequestLogORM.request_time >= month_start_naive,
+                    RequestLogORM.api_key_id.in_(api_key_ids),
+                )
+            )
+            .group_by(RequestLogORM.api_key_id)
+        )
+
+        rows = (await self.session.execute(stmt)).mappings().all()
+        found_ids = {int(row["api_key_id"]) for row in rows}
+
+        results = [
+            ApiKeyPeriodCosts(
+                api_key_id=int(row["api_key_id"]),
+                daily_cost=float(row["daily_cost"] or 0),
+                weekly_cost=float(row["weekly_cost"] or 0),
+                monthly_cost=float(row["monthly_cost"] or 0),
+            )
+            for row in rows
+        ]
+        # Ensure all requested IDs are present (zero costs if no logs)
+        for key_id in api_key_ids:
+            if key_id not in found_ids:
+                results.append(ApiKeyPeriodCosts(api_key_id=key_id))
+        return results

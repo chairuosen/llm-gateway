@@ -255,4 +255,7 @@ class ApiKeyService:
             is_active=api_key.is_active,
             created_at=api_key.created_at,
             last_used_at=api_key.last_used_at,
+            daily_cost_limit=api_key.daily_cost_limit,
+            weekly_cost_limit=api_key.weekly_cost_limit,
+            monthly_cost_limit=api_key.monthly_cost_limit,
         )

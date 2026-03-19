@@ -128,7 +128,9 @@
         "status": "状态",
         "createdAt": "创建时间",
         "lastUsed": "最近使用",
-        "actions": "操作"
+        "actions": "操作",
+        "dailyCost": "今日消费",
+        "weeklyCost": "本周消费"
       },
       "status": {
         "active": "启用",
@@ -153,7 +155,14 @@
       "enabledStatusLabel": "启用状态",
       "autoGenerateHint": "API Key 将由系统自动生成，请在创建后立即保存",
       "keyNameLabel": "API Key 名称",
-      "keyLabel": "API Key"
+      "keyLabel": "API Key",
+      "spendingLimitsLabel": "消费限额（USD）",
+      "dailyLimitLabel": "日限额",
+      "weeklyLimitLabel": "周限额",
+      "monthlyLimitLabel": "月限额",
+      "limitPlaceholder": "无限制",
+      "limitInvalid": "请输入有效的金额",
+      "limitHint": "留空表示不限额，超限后该 Key 的请求将被拒绝"
     },
     "success": {
       "title": "API Key 创建成功",

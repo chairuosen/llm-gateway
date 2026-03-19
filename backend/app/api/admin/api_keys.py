@@ -50,16 +50,19 @@ async def list_api_keys(
     try:
         items, total = await service.get_all(is_active, page, page_size)
 
-        # Get monthly costs for all API Keys in the result
+        # Get period costs (daily/weekly/monthly) for all API Keys in the result
         api_key_ids = [item.id for item in items]
-        monthly_costs = await log_service.get_api_key_monthly_costs(api_key_ids)
+        period_costs = await log_service.get_api_key_period_costs(api_key_ids)
 
-        # Create a mapping from api_key_id to total_cost
-        cost_map = {cost.api_key_id: cost.total_cost for cost in monthly_costs}
+        # Create a mapping from api_key_id to period costs
+        period_cost_map = {c.api_key_id: c for c in period_costs}
 
-        # Update items with monthly_cost
+        # Update items with period costs and limit fields
         for item in items:
-            item.monthly_cost = cost_map.get(item.id, 0.0)
+            pc = period_cost_map.get(item.id)
+            item.daily_cost = pc.daily_cost if pc else 0.0
+            item.weekly_cost = pc.weekly_cost if pc else 0.0
+            item.monthly_cost = pc.monthly_cost if pc else 0.0
 
         return PaginatedApiKeyResponse(
             items=items,

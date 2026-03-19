@@ -43,6 +43,9 @@ interface ApiKeyFormProps {
 interface FormData {
   key_name: string;
   is_active: boolean;
+  daily_cost_limit: string;
+  weekly_cost_limit: string;
+  monthly_cost_limit: string;
 }
 
 /**
@@ -74,6 +77,9 @@ export function ApiKeyForm({
     defaultValues: {
       key_name: '',
       is_active: true,
+      daily_cost_limit: '',
+      weekly_cost_limit: '',
+      monthly_cost_limit: '',
     },
   });
 
@@ -85,15 +91,28 @@ export function ApiKeyForm({
       reset({
         key_name: apiKey.key_name,
         is_active: apiKey.is_active,
+        daily_cost_limit: apiKey.daily_cost_limit != null ? String(apiKey.daily_cost_limit) : '',
+        weekly_cost_limit: apiKey.weekly_cost_limit != null ? String(apiKey.weekly_cost_limit) : '',
+        monthly_cost_limit: apiKey.monthly_cost_limit != null ? String(apiKey.monthly_cost_limit) : '',
       });
     } else {
       reset({
         key_name: '',
         is_active: true,
+        daily_cost_limit: '',
+        weekly_cost_limit: '',
+        monthly_cost_limit: '',
       });
     }
     setCopied(false);
   }, [apiKey, reset, open]);
+
+  // Parse optional limit value: empty string → null, otherwise number
+  const parseLimit = (v: string): number | null => {
+    if (v === '' || v === undefined) return null;
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  };
 
   // Submit form
   const onFormSubmit = (data: FormData) => {
@@ -101,6 +120,9 @@ export function ApiKeyForm({
       onSubmit({
         key_name: data.key_name,
         is_active: data.is_active,
+        daily_cost_limit: parseLimit(data.daily_cost_limit),
+        weekly_cost_limit: parseLimit(data.weekly_cost_limit),
+        monthly_cost_limit: parseLimit(data.monthly_cost_limit),
       });
     } else {
       onSubmit({
@@ -213,6 +235,70 @@ export function ApiKeyForm({
                 checked={isActive}
                 onCheckedChange={(checked) => setValue('is_active', checked)}
               />
+            </div>
+          )}
+
+          {/* Spending Limits (edit mode only) */}
+          {isEdit && (
+            <div className="space-y-3">
+              <p className="text-sm font-medium">{t('form.spendingLimitsLabel')}</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="daily_cost_limit" className="text-xs text-muted-foreground">
+                    {t('form.dailyLimitLabel')}
+                  </Label>
+                  <Input
+                    id="daily_cost_limit"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder={t('form.limitPlaceholder')}
+                    {...register('daily_cost_limit', {
+                      validate: (v) => v === '' || (!isNaN(parseFloat(v)) && parseFloat(v) >= 0) || t('form.limitInvalid'),
+                    })}
+                  />
+                  {errors.daily_cost_limit && (
+                    <p className="text-xs text-destructive">{errors.daily_cost_limit.message}</p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="weekly_cost_limit" className="text-xs text-muted-foreground">
+                    {t('form.weeklyLimitLabel')}
+                  </Label>
+                  <Input
+                    id="weekly_cost_limit"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder={t('form.limitPlaceholder')}
+                    {...register('weekly_cost_limit', {
+                      validate: (v) => v === '' || (!isNaN(parseFloat(v)) && parseFloat(v) >= 0) || t('form.limitInvalid'),
+                    })}
+                  />
+                  {errors.weekly_cost_limit && (
+                    <p className="text-xs text-destructive">{errors.weekly_cost_limit.message}</p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="monthly_cost_limit" className="text-xs text-muted-foreground">
+                    {t('form.monthlyLimitLabel')}
+                  </Label>
+                  <Input
+                    id="monthly_cost_limit"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder={t('form.limitPlaceholder')}
+                    {...register('monthly_cost_limit', {
+                      validate: (v) => v === '' || (!isNaN(parseFloat(v)) && parseFloat(v) >= 0) || t('form.limitInvalid'),
+                    })}
+                  />
+                  {errors.monthly_cost_limit && (
+                    <p className="text-xs text-destructive">{errors.monthly_cost_limit.message}</p>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">{t('form.limitHint')}</p>
             </div>
           )}
 

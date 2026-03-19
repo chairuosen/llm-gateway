@@ -349,3 +349,12 @@ class ApiKeyMonthlyCost(BaseModel):
 
     api_key_id: int
     total_cost: float = 0.0
+
+
+class ApiKeyPeriodCosts(BaseModel):
+    """API Key daily/weekly/monthly cost summary"""
+
+    api_key_id: int
+    daily_cost: float = 0.0
+    weekly_cost: float = 0.0
+    monthly_cost: float = 0.0

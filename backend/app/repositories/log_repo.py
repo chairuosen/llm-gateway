@@ -17,6 +17,7 @@ from app.domain.log import (
     ModelStats,
     ModelProviderStats,
     ApiKeyMonthlyCost,
+    ApiKeyPeriodCosts,
 )
 
 
@@ -105,5 +106,20 @@ class LogRepository(ABC):
 
         Returns:
             list[ApiKeyMonthlyCost]: List of API Key monthly cost summaries
+        """
+        pass
+
+    @abstractmethod
+    async def get_api_key_period_costs(
+        self, api_key_ids: list[int]
+    ) -> list[ApiKeyPeriodCosts]:
+        """
+        Get daily/weekly/monthly costs for given API Key IDs in a single query.
+
+        Args:
+            api_key_ids: List of API Key IDs to query.
+
+        Returns:
+            list[ApiKeyPeriodCosts]: Per-key cost breakdown for day/week/month.
         """
         pass

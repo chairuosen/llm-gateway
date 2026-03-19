@@ -41,6 +41,9 @@ class SQLAlchemyApiKeyRepository(ApiKeyRepository):
             is_active=entity.is_active,
             created_at=ensure_utc(entity.created_at),
             last_used_at=ensure_utc(entity.last_used_at),
+            daily_cost_limit=float(entity.daily_cost_limit) if entity.daily_cost_limit is not None else None,
+            weekly_cost_limit=float(entity.weekly_cost_limit) if entity.weekly_cost_limit is not None else None,
+            monthly_cost_limit=float(entity.monthly_cost_limit) if entity.monthly_cost_limit is not None else None,
         )
     
     async def create(self, data: ApiKeyCreate, key_value: str) -> ApiKeyModel:

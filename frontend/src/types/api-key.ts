@@ -11,7 +11,14 @@ export interface ApiKey {
   is_active: boolean;
   created_at: string;
   last_used_at?: string | null;
-  monthly_cost?: number | null; // Current month's total cost (USD)
+  // Period costs (USD)
+  daily_cost?: number | null;
+  weekly_cost?: number | null;
+  monthly_cost?: number | null;
+  // Spending limits (USD), null = no limit
+  daily_cost_limit?: number | null;
+  weekly_cost_limit?: number | null;
+  monthly_cost_limit?: number | null;
 }
 
 /** Create API Key Request */
@@ -23,6 +30,9 @@ export interface ApiKeyCreate {
 export interface ApiKeyUpdate {
   key_name?: string;
   is_active?: boolean;
+  daily_cost_limit?: number | null;
+  weekly_cost_limit?: number | null;
+  monthly_cost_limit?: number | null;
 }
 
 /** API Key List Query Params */

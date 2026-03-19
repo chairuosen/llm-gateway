@@ -10,6 +10,7 @@ from typing import Optional
 from app.common.errors import NotFoundError
 from app.domain.log import (
     ApiKeyMonthlyCost,
+    ApiKeyPeriodCosts,
     RequestLogModel,
     RequestLogCreate,
     RequestLogResponse,
@@ -163,3 +164,9 @@ class LogService:
             list[ApiKeyMonthlyCost]: List of API Key monthly cost summaries
         """
         return await self.repo.get_api_key_monthly_costs(api_key_ids)
+
+    async def get_api_key_period_costs(
+        self, api_key_ids: list[int]
+    ) -> list[ApiKeyPeriodCosts]:
+        """Get daily/weekly/monthly costs for given API Key IDs."""
+        return await self.repo.get_api_key_period_costs(api_key_ids)

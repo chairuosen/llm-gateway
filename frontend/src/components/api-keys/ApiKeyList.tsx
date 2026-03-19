@@ -101,6 +101,8 @@ export function ApiKeyList({
           <TableHead className="w-[60px]">{t('list.columns.id')}</TableHead>
           <TableHead>{t('list.columns.name')}</TableHead>
           <TableHead>{t('list.columns.key')}</TableHead>
+          <TableHead>{t('list.columns.dailyCost')}</TableHead>
+          <TableHead>{t('list.columns.weeklyCost')}</TableHead>
           <TableHead>{t('list.columns.monthlyCost')}</TableHead>
           <TableHead>{t('list.columns.status')}</TableHead>
           <TableHead>{t('list.columns.createdAt')}</TableHead>
@@ -166,7 +168,22 @@ export function ApiKeyList({
                 </div>
               </TableCell>
               <TableCell className="font-mono text-sm">
-                {formatUsdCompact(apiKey.monthly_cost)}
+                <span>{formatUsdCompact(apiKey.daily_cost)}</span>
+                {apiKey.daily_cost_limit != null && (
+                  <span className="text-muted-foreground"> / {formatUsdCompact(apiKey.daily_cost_limit)}</span>
+                )}
+              </TableCell>
+              <TableCell className="font-mono text-sm">
+                <span>{formatUsdCompact(apiKey.weekly_cost)}</span>
+                {apiKey.weekly_cost_limit != null && (
+                  <span className="text-muted-foreground"> / {formatUsdCompact(apiKey.weekly_cost_limit)}</span>
+                )}
+              </TableCell>
+              <TableCell className="font-mono text-sm">
+                <span>{formatUsdCompact(apiKey.monthly_cost)}</span>
+                {apiKey.monthly_cost_limit != null && (
+                  <span className="text-muted-foreground"> / {formatUsdCompact(apiKey.monthly_cost_limit)}</span>
+                )}
               </TableCell>
               <TableCell>
                 <Badge className={status.className}>

@@ -10,6 +10,7 @@ from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.admin_auth import is_admin_auth_enabled, verify_admin_token
+from app.common.errors import AuthenticationError
 from app.config import get_settings
 from app.db.session import get_db as _get_db
 from app.domain.api_key import ApiKeyModel
@@ -204,7 +205,36 @@ async def get_current_api_key(
     """
     service = get_api_key_service(db)
     token = x_api_key or authorization
-    return await service.authenticate(token or "")
+    api_key = await service.authenticate(token or "")
+
+    # Check spending limits if any are configured
+    has_limit = (
+        api_key.daily_cost_limit is not None
+        or api_key.weekly_cost_limit is not None
+        or api_key.monthly_cost_limit is not None
+    )
+    if has_limit:
+        log_service = get_log_service(db)
+        period_costs_list = await log_service.get_api_key_period_costs([api_key.id])
+        costs = period_costs_list[0] if period_costs_list else None
+        if costs:
+            if api_key.daily_cost_limit is not None and costs.daily_cost >= api_key.daily_cost_limit:
+                raise AuthenticationError(
+                    message=f"[LLM-Gateway] Daily spending limit (${api_key.daily_cost_limit:.4f}) exceeded",
+                    code="spending_limit_exceeded",
+                )
+            if api_key.weekly_cost_limit is not None and costs.weekly_cost >= api_key.weekly_cost_limit:
+                raise AuthenticationError(
+                    message=f"[LLM-Gateway] Weekly spending limit (${api_key.weekly_cost_limit:.4f}) exceeded",
+                    code="spending_limit_exceeded",
+                )
+            if api_key.monthly_cost_limit is not None and costs.monthly_cost >= api_key.monthly_cost_limit:
+                raise AuthenticationError(
+                    message=f"[LLM-Gateway] Monthly spending limit (${api_key.monthly_cost_limit:.4f}) exceeded",
+                    code="spending_limit_exceeded",
+                )
+
+    return api_key
 
 
 # Dependency Type Aliases

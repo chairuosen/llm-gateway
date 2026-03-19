@@ -42,35 +42,47 @@ class ApiKeyCreate(ApiKeyBase):
 
 class ApiKeyUpdate(BaseModel):
     """Update API Key Request Model"""
-    
+
     key_name: Optional[str] = Field(None, min_length=1, max_length=100)
     is_active: Optional[bool] = None
+    daily_cost_limit: Optional[float] = Field(None, ge=0, description="Daily spending limit (USD), None = no limit")
+    weekly_cost_limit: Optional[float] = Field(None, ge=0, description="Weekly spending limit (USD), None = no limit")
+    monthly_cost_limit: Optional[float] = Field(None, ge=0, description="Monthly spending limit (USD), None = no limit")
 
 
 class ApiKeyModel(ApiKeyBase):
     """API Key Complete Model"""
-    
+
     id: int = Field(..., description="API Key ID")
     key_value: str = Field(..., description="Key Value")
     is_active: bool = Field(True, description="Is Active")
     created_at: datetime = Field(..., description="Creation Time")
     last_used_at: Optional[datetime] = Field(None, description="Last Used Time")
-    
+    daily_cost_limit: Optional[float] = Field(None, description="Daily spending limit (USD)")
+    weekly_cost_limit: Optional[float] = Field(None, description="Weekly spending limit (USD)")
+    monthly_cost_limit: Optional[float] = Field(None, description="Monthly spending limit (USD)")
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class ApiKeyResponse(ApiKeyBase):
     """API Key Response Model (key_value sanitized)"""
-    
+
     id: int = Field(..., description="API Key ID")
     # key_value sanitized display
     key_value: str = Field(..., description="Key Value (Sanitized)")
     is_active: bool = Field(True, description="Is Active")
     created_at: datetime = Field(..., description="Creation Time")
     last_used_at: Optional[datetime] = Field(None, description="Last Used Time")
-    # Current month's total cost (USD)
+    # Period costs (USD)
+    daily_cost: Optional[float] = Field(None, description="Today's total cost (USD)")
+    weekly_cost: Optional[float] = Field(None, description="This week's total cost (USD)")
     monthly_cost: Optional[float] = Field(None, description="Current month's total cost (USD)")
-    
+    # Spending limits (USD), None = no limit
+    daily_cost_limit: Optional[float] = Field(None, description="Daily spending limit (USD)")
+    weekly_cost_limit: Optional[float] = Field(None, description="Weekly spending limit (USD)")
+    monthly_cost_limit: Optional[float] = Field(None, description="Monthly spending limit (USD)")
+
     model_config = ConfigDict(from_attributes=True)
 
 

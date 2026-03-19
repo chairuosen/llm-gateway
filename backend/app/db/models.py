@@ -274,7 +274,13 @@ class ApiKey(Base):
     )
     # Last Used Time
     last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    
+    # Daily spending limit (USD), None = no limit
+    daily_cost_limit: Mapped[Optional[float]] = mapped_column(Numeric(10, 6), nullable=True)
+    # Weekly spending limit (USD), None = no limit
+    weekly_cost_limit: Mapped[Optional[float]] = mapped_column(Numeric(10, 6), nullable=True)
+    # Monthly spending limit (USD), None = no limit
+    monthly_cost_limit: Mapped[Optional[float]] = mapped_column(Numeric(10, 6), nullable=True)
+
     # Relationship: Request logs for this Key
     logs: Mapped[list["RequestLog"]] = relationship("RequestLog", back_populates="api_key")
 
