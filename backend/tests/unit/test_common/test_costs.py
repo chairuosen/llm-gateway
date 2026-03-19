@@ -741,6 +741,7 @@ class TestAnthropicCacheReadTokens:
     def test_basic_cache_read_additive(self):
         """
         Anthropic: input_tokens=100k (fresh), cache_read_tokens=500k (separate).
+        cache_read uses cached_output_price (UI: Cache Read Price).
         Total = 100k*5/1M + 500k*1/1M = 0.5 + 0.5 = 1.0
         """
         cost = calculate_cost(
@@ -750,7 +751,7 @@ class TestAnthropicCacheReadTokens:
             output_price=0.0,
             cache_billing_enabled=True,
             cache_read_tokens=500_000,
-            cached_input_price=1.0,
+            cached_output_price=1.0,
         )
         # fresh input: 100k/1M * 5 = 0.5
         # cache read: 500k/1M * 1 = 0.5
@@ -760,18 +761,18 @@ class TestAnthropicCacheReadTokens:
         assert cost.cache_creation_cost == 0.0
 
     def test_cache_read_fallback_to_input_price(self):
-        """When cached_input_price is None, cache_read_tokens use input_price."""
+        """When cached_output_price is None, cache_read_tokens fall back to output_price then input_price."""
         cost = calculate_cost(
             input_tokens=100_000,
             output_tokens=0,
             input_price=5.0,
-            output_price=0.0,
+            output_price=5.0,
             cache_billing_enabled=True,
             cache_read_tokens=200_000,
-            cached_input_price=None,
+            cached_output_price=None,
         )
         # fresh: 100k/1M * 5 = 0.5
-        # cache read: 200k/1M * 5 = 1.0 (falls back to input_price)
+        # cache read: 200k/1M * 5 = 1.0 (falls back to output_price)
         assert cost.input_cost == 1.5
         assert cost.cached_input_cost == 1.0
 
@@ -858,9 +859,8 @@ class TestAnthropicFullCacheScenario:
           cache_creation_tokens = 10000 (new system prompt being cached)
           output_tokens = 500
           input_price = 3.0 $/1M
-          cached_input_price = 0.30 $/1M (90% discount)
-          cache_creation_price = 3.75 $/1M (25% surcharge)
-          output_price = 15.0 $/1M
+          cached_output_price = 0.30 $/1M  → UI "Cache Read Price"  (90% discount)
+          cached_input_price  = 3.75 $/1M  → UI "Cache Write Price" (25% surcharge)
         """
         cost = calculate_cost(
             input_tokens=1_000,
@@ -869,14 +869,14 @@ class TestAnthropicFullCacheScenario:
             output_price=15.0,
             cache_billing_enabled=True,
             cache_read_tokens=90_000,
-            cached_input_price=0.30,
+            cached_output_price=0.30,
             cache_creation_tokens=10_000,
-            cache_creation_price=3.75,
+            cached_input_price=3.75,
         )
-        # fresh input:    1000/1M * 3.0    = 0.003  → rounds up to 0.0030 (4 dp)
-        # cache read:  90000/1M * 0.30     = 0.027  → 0.0270
-        # cache create: 10000/1M * 3.75    = 0.0375 → rounds up to 0.0375
-        # output:         500/1M * 15.0    = 0.0075 → rounds up to 0.0075
+        # fresh input:    1000/1M * 3.0    = 0.003
+        # cache read:  90000/1M * 0.30     = 0.027
+        # cache create: 10000/1M * 3.75    = 0.0375
+        # output:         500/1M * 15.0    = 0.0075
         # total input cost = 0.003 + 0.027 + 0.0375 = 0.0675
         # total = 0.0675 + 0.0075 = 0.0750
         assert cost.cache_creation_cost == 0.0375
@@ -948,8 +948,8 @@ class TestResolveBillingCacheCreationPrice:
             input_price=3.0,
             output_price=15.0,
             cache_billing_enabled=True,
-            cached_input_price=0.30,
-            cache_creation_price=3.75,
+            cached_input_price=3.75,   # UI "Cache Write Price"
+            cached_output_price=0.30,  # UI "Cache Read Price"
         )
         cost = calculate_cost_from_billing(
             input_tokens=1_000,
@@ -958,9 +958,9 @@ class TestResolveBillingCacheCreationPrice:
             cache_read_tokens=90_000,
             cache_creation_tokens=10_000,
         )
-        # fresh: 1k/1M * 3 = 0.003 → 0.003
-        # read: 90k/1M * 0.30 = 0.027 → 0.027
-        # creation: 10k/1M * 3.75 = 0.0375
+        # fresh: 1k/1M * 3 = 0.003
+        # read:  90k/1M * 0.30 = 0.027   (cached_output_price)
+        # write: 10k/1M * 3.75 = 0.0375  (cached_input_price)
         # output: 500/1M * 15 = 0.0075
         assert cost.cache_creation_cost == 0.0375
         assert cost.cached_input_cost == 0.027

@@ -416,9 +416,10 @@ def calculate_cost(
     )
     if has_cache:
         # Effective prices (fall back to regular price if not configured)
+        # cached_input_price → UI "Cache Write Price" → used for OpenAI cached_tokens and Anthropic cache_creation
+        # cached_output_price → UI "Cache Read Price"  → used for Anthropic cache_read_tokens
         eff_cached_in_price = cached_input_price if cached_input_price is not None else input_price
         eff_cached_out_price = cached_output_price if cached_output_price is not None else output_price
-        eff_creation_price = cache_creation_price if cache_creation_price is not None else input_price
 
         # OpenAI-style: cached_input_tokens are PART OF input_tokens (split billing)
         c_in = min(int(cached_input_tokens or 0), in_tokens)
@@ -432,17 +433,19 @@ def calculate_cost(
         input_cost = _q4(regular_in_cost + cached_in_cost)
 
         # Anthropic-style: cache_read_tokens are SEPARATE FROM input_tokens (additive)
-        # Billed at cached_input_price (same rate as OpenAI cached tokens)
+        # Billed at cached_output_price (UI label: "Cache Read Price").
         if cache_read_tokens:
             c_read = int(cache_read_tokens)
             read_cost = _q4(
-                (Decimal(c_read) / _ONE_MILLION) * _to_decimal(eff_cached_in_price)
+                (Decimal(c_read) / _ONE_MILLION) * _to_decimal(eff_cached_out_price)
             )
             cached_in_cost = _q4(cached_in_cost + read_cost)
             input_cost = _q4(input_cost + read_cost)
 
         # Anthropic-style: cache_creation_tokens are SEPARATE FROM input_tokens (additive)
-        # Billed at cache_creation_price (typically 25% surcharge over input_price)
+        # Billed at cached_input_price (UI label: "Cache Write Price").
+        # Falls back to cache_creation_price if set, then to input_price.
+        eff_creation_price = cache_creation_price if cache_creation_price is not None else eff_cached_in_price
         if cache_creation_tokens:
             c_create = int(cache_creation_tokens)
             cache_creation_cost_val = _q4(
