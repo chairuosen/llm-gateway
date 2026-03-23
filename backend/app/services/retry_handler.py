@@ -364,12 +364,12 @@ class RetryHandler:
                     same_provider_retries += 1
                     total_retry_count += 1
 
-                    if same_provider_retries < self.max_retries:
+                    if same_provider_retries < self.max_retries and not await circuit_breaker.is_open(current_provider):
                         # Wait before retry
                         await asyncio.sleep(self.retry_delay_ms / 1000)
                         continue
                     else:
-                        # Max retries reached, switch provider
+                        # Max retries reached or circuit opened, switch provider
                         logger.warning(
                             "Max retries reached for provider: provider_id=%s, provider_name=%s, switching to next provider",
                             current_provider.provider_id,
@@ -515,7 +515,7 @@ class RetryHandler:
                         await circuit_breaker.record_failure(current_provider)
                         same_provider_retries += 1
                         total_retry_count += 1
-                        if same_provider_retries < self.max_retries:
+                        if same_provider_retries < self.max_retries and not await circuit_breaker.is_open(current_provider):
                             await asyncio.sleep(self.retry_delay_ms / 1000)
                             continue
                         else:

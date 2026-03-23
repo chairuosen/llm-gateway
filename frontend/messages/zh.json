@@ -660,6 +660,7 @@
         "time": "时间",
         "provider": "供应商",
         "modelMapping": "模型映射",
+        "timing": "耗时",
         "tokenInOut": "输入/输出 tokens",
         "cost": "成本",
         "statusRetry": "状态/重试",
@@ -672,7 +673,9 @@
       "outTokens": "输出：{count}",
       "retry": "重试：{count}",
       "cacheReadTokens": "缓存读取 {count}",
-      "cacheCreationTokens": "缓存写入 {count}"
+      "cacheCreationTokens": "缓存写入 {count}",
+      "ttfb": "首字节 {duration}",
+      "totalTime": "总计 {duration}"
     },
     "filters": {
       "all": "全部",

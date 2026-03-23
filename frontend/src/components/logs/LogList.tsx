@@ -22,7 +22,7 @@ import {
   Waves,
 } from 'lucide-react';
 import { RequestLog } from '@/types';
-import { formatDateTime, getStatusColor, formatUsd } from '@/lib/utils';
+import { formatDateTime, getStatusColor, formatUsd, formatDuration } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
 
 interface LogListProps {
@@ -44,6 +44,7 @@ export function LogList({ logs, onView }: LogListProps) {
           <TableHead className="w-[180px]">{t('list.columns.time')}</TableHead>
           <TableHead>{t('list.columns.provider')}</TableHead>
           <TableHead>{t('list.columns.modelMapping')}</TableHead>
+          <TableHead>{t('list.columns.timing')}</TableHead>
           <TableHead>{t('list.columns.tokenInOut')}</TableHead>
           <TableHead>{t('list.columns.cost')}</TableHead>
           <TableHead>{t('list.columns.statusRetry')}</TableHead>
@@ -83,6 +84,19 @@ export function LogList({ logs, onView }: LogListProps) {
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {log.api_key_name}
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell className="font-mono text-xs">
+                <div className="flex flex-col gap-0.5">
+                  <div
+                    className="text-muted-foreground"
+                    title={t('list.ttfb', { duration: formatDuration(log.first_byte_delay_ms) })}
+                  >
+                    {formatDuration(log.first_byte_delay_ms)}
+                  </div>
+                  <div title={t('list.totalTime', { duration: formatDuration(log.total_time_ms) })}>
+                    {formatDuration(log.total_time_ms)}
                   </div>
                 </div>
               </TableCell>

@@ -660,6 +660,7 @@
         "time": "Time",
         "provider": "Provider",
         "modelMapping": "Model Mapping",
+        "timing": "Timing",
         "tokenInOut": "In/Out Token",
         "cost": "Cost",
         "statusRetry": "Status/Retry",
@@ -672,7 +673,9 @@
       "outTokens": "Out: {count}",
       "retry": "Retry: {count}",
       "cacheReadTokens": "cache-r {count}",
-      "cacheCreationTokens": "cache-w {count}"
+      "cacheCreationTokens": "cache-w {count}",
+      "ttfb": "TTFB {duration}",
+      "totalTime": "Total {duration}"
     },
     "filters": {
       "all": "All",
