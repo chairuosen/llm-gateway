@@ -570,7 +570,7 @@ class RetryHandler:
                     )
                     same_provider_retries += 1
                     total_retry_count += 1
-                    if same_provider_retries < self.max_retries:
+                    if same_provider_retries < self.max_retries and not await circuit_breaker.is_open(current_provider):
                         await asyncio.sleep(self.retry_delay_ms / 1000)
                         continue
                     else:
