@@ -155,6 +155,13 @@ class CircuitBreakerRegistry:
             return True
         return False
 
+
+    def force_open_key(self, key: str) -> None:
+        """Force-open the circuit for a specific key (manual override)."""
+        state = self._states.setdefault(key, _CircuitState())
+        state.opened_at = time.monotonic()
+        state.consecutive_failures = 99  # sentinel: manually opened
+
     def get_states_snapshot(self) -> dict:
         """
         Return a snapshot of all circuit states.
@@ -732,4 +739,3 @@ class RetryHandler:
 
         # All remaining are circuit-broken; still return the first untried for a probe
         return first_untried
-

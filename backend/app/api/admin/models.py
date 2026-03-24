@@ -347,6 +347,14 @@ async def reset_circuit_breaker():
     return {"ok": True, "message": "All circuit breaker states have been reset"}
 
 
+
+@router.post("/circuit-breaker/open/mapping/{mapping_id}", dependencies=[Depends(require_admin_auth)])
+async def open_circuit_breaker_mapping(mapping_id: int):
+    """Force-open circuit breaker for a specific provider mapping."""
+    key = f"mapping:{mapping_id}"
+    circuit_breaker.force_open_key(key)
+    return {"ok": True, "key": key}
+
 @router.get("/circuit-breaker/states", dependencies=[Depends(require_admin_auth)])
 async def get_circuit_breaker_states():
     """Get snapshot of all current circuit breaker states."""

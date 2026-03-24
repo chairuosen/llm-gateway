@@ -207,3 +207,7 @@ export async function getCircuitBreakerStates(): Promise<Record<string, CircuitB
 export async function resetMappingCircuitBreaker(mappingId: number): Promise<{ ok: boolean; existed: boolean; key: string }> {
   return post<{ ok: boolean; existed: boolean; key: string }>(`/api/admin/circuit-breaker/reset/mapping/${mappingId}`, {});
 }
+
+export async function openMappingCircuitBreaker(mappingId: number): Promise<{ ok: boolean; key: string }> {
+  return post<{ ok: boolean; key: string }>(`/api/admin/circuit-breaker/open/mapping/${mappingId}`, {});
+}

@@ -44,7 +44,7 @@ import {
   useUpdateModelProvider,
   useDeleteModelProvider,
 } from '@/lib/hooks';
-import { resetCircuitBreaker, getCircuitBreakerStates, resetMappingCircuitBreaker, CircuitBreakerState } from '@/lib/api';
+import { resetCircuitBreaker, getCircuitBreakerStates, resetMappingCircuitBreaker, openMappingCircuitBreaker, CircuitBreakerState } from '@/lib/api';
 import {
   ModelMappingProvider,
   ModelMappingProviderCreate,
@@ -146,10 +146,14 @@ function ModelDetailContent() {
     }
   };
 
-  const handleToggleMappingCb = async (mappingId: number) => {
+  const handleToggleMappingCb = async (mappingId: number, currentStatus: string) => {
     setCbTogglingId(mappingId);
     try {
-      await resetMappingCircuitBreaker(mappingId);
+      if (currentStatus === 'CLOSED') {
+        await openMappingCircuitBreaker(mappingId);
+      } else {
+        await resetMappingCircuitBreaker(mappingId);
+      }
       await fetchCbStates();
     } catch {
       toast.error(t('detail.circuitBreakerResetFailed'));
@@ -545,12 +549,24 @@ function ModelDetailContent() {
                         {(() => {
                           const cbKey = `mapping:${mapping.id}`;
                           const cbState = cbStates[cbKey];
-                          const isOpen = cbState?.status === 'OPEN';
-                          const isHalfOpen = cbState?.status === 'HALF_OPEN';
+                          const status = cbState?.status ?? 'CLOSED';
+                          const isOpen = status === 'OPEN';
+                          const isHalfOpen = status === 'HALF_OPEN';
+                          const isClosed = status === 'CLOSED';
                           const isToggling = cbTogglingId === mapping.id;
-                          if (!cbState || cbState.status === 'CLOSED') {
-                            return <span className="text-xs text-muted-foreground">—</span>;
-                          }
+                          const badgeClass = isClosed
+                            ? 'border-transparent bg-green-500/15 text-green-700 dark:text-green-400'
+                            : isOpen
+                            ? 'border-transparent bg-red-500/15 text-red-700 dark:text-red-300'
+                            : 'border-transparent bg-amber-500/15 text-amber-700 dark:text-amber-300';
+                          const label = isClosed
+                            ? t('detail.cbClosed')
+                            : isHalfOpen
+                            ? t('detail.cbHalfOpen')
+                            : t('detail.cbOpen');
+                          const tooltip = isClosed
+                            ? t('detail.cbClosedTooltip')
+                            : t('detail.cbResetTooltip', { failures: cbState?.consecutive_failures ?? 0 });
                           return (
                             <TooltipProvider>
                               <Tooltip>
@@ -558,19 +574,17 @@ function ModelDetailContent() {
                                   <button
                                     className="cursor-pointer"
                                     disabled={isToggling}
-                                    onClick={() => handleToggleMappingCb(mapping.id)}
+                                    onClick={() => handleToggleMappingCb(mapping.id, status)}
                                   >
-                                    <Badge className={`text-xs ${isToggling ? 'opacity-50' : 'hover:opacity-80'} ${isOpen ? 'border-transparent bg-red-500/15 text-red-700 dark:text-red-300' : 'border-transparent bg-amber-500/15 text-amber-700 dark:text-amber-300'}`}>
-                                      {isHalfOpen ? t('detail.cbHalfOpen') : t('detail.cbOpen')}
-                                      {isOpen && cbState.opened_seconds_ago != null && (
+                                    <Badge className={`text-xs ${isToggling ? 'opacity-50' : 'hover:opacity-80'} ${badgeClass}`}>
+                                      {label}
+                                      {isOpen && cbState?.opened_seconds_ago != null && (
                                         <span className="ml-1 opacity-70">{Math.floor(cbState.opened_seconds_ago)}s</span>
                                       )}
                                     </Badge>
                                   </button>
                                 </TooltipTrigger>
-                                <TooltipContent>
-                                  {t('detail.cbResetTooltip', { failures: cbState.consecutive_failures })}
-                                </TooltipContent>
+                                <TooltipContent>{tooltip}</TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
                           );

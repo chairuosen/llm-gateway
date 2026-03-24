@@ -477,7 +477,9 @@
       "resetCircuitBreaker": "Reset Circuit Breaker",
       "circuitBreakerResetTooltip": "Clear all provider circuit breaker states and resume normal routing",
       "circuitBreakerReset": "Circuit breaker states have been reset",
-      "circuitBreakerResetFailed": "Reset failed, please try again"
+      "circuitBreakerResetFailed": "Reset failed, please try again",
+      "cbClosed": "Closed",
+      "cbClosedTooltip": "Click to force open circuit"
     },
     "providerForm": {
       "editTitle": "Edit Provider Configuration",
