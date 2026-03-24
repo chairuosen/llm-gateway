@@ -764,7 +764,9 @@
       "convertedResponse": "转换后的响应（客户端）",
       "requestHeaders": "请求头",
       "responseHeaders": "响应头",
-      "copyAsCurl": "复制为 cURL"
+      "copyAsCurl": "复制为 cURL",
+      "conversationPreview": "对话预览",
+      "conversationPreviewDescription": "最新一轮对话的人类可读展示"
     },
     "costStats": {
       "activity": "活动",

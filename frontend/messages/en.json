@@ -764,7 +764,9 @@
       "convertedResponse": "Converted Response (Client)",
       "requestHeaders": "Request Headers",
       "responseHeaders": "Response Headers",
-      "copyAsCurl": "Copy as cURL"
+      "copyAsCurl": "Copy as cURL",
+      "conversationPreview": "Conversation Preview",
+      "conversationPreviewDescription": "Human-readable view of the latest conversation turn"
     },
     "costStats": {
       "activity": "Activity",

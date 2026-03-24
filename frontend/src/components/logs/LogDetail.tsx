@@ -37,6 +37,171 @@ import {
 } from "@/components/common/StreamJsonViewer";
 import { useTranslations } from "next-intl";
 
+// ─── Conversation Preview Helpers ──────────────────────────────────────────
+
+interface _MsgContentPart {
+  type: string;
+  text?: string;
+  image_url?: { url: string };
+  content?: unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [k: string]: any;
+}
+
+interface _ChatMsg {
+  role: string;
+  content?: string | _MsgContentPart[] | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tool_calls?: any[];
+  tool_call_id?: string;
+}
+
+function _getLastUserMsg(messages: unknown): _ChatMsg | null {
+  if (!Array.isArray(messages)) return null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i] as _ChatMsg;
+    if (m.role === "user" || m.role === "tool") return m;
+  }
+  return null;
+}
+
+function _extractAssistantMsg(
+  body: unknown,
+): { content: string | null; tool_calls: unknown[] } | null {
+  if (!body) return null;
+  // Non-streaming JSON
+  if (typeof body === "object" && !Array.isArray(body)) {
+    const choices = (body as Record<string, unknown>).choices;
+    if (Array.isArray(choices) && choices.length > 0) {
+      const msg = (choices[0] as Record<string, unknown>).message as
+        | Record<string, unknown>
+        | undefined;
+      if (msg)
+        return {
+          content: (msg.content as string | null) ?? null,
+          tool_calls: (msg.tool_calls as unknown[]) ?? [],
+        };
+    }
+  }
+  // Streaming SSE
+  if (isStreamPayload(body)) {
+    const text = typeof body === "string" ? body : "";
+    let content = "";
+    const tcMap: Record<
+      number,
+      { id?: string; function: { name: string; arguments: string } }
+    > = {};
+    for (const line of text.split(/\r?\n/)) {
+      const m = line.match(/^data:\s*(.+)$/);
+      if (!m) continue;
+      const p = m[1].trim();
+      if (p === "[DONE]") continue;
+      try {
+        const chunk = JSON.parse(p);
+        const delta = chunk?.choices?.[0]?.delta;
+        if (!delta) continue;
+        if (typeof delta.content === "string") content += delta.content;
+        if (Array.isArray(delta.tool_calls)) {
+          for (const tc of delta.tool_calls) {
+            const idx: number = tc.index ?? 0;
+            if (!tcMap[idx])
+              tcMap[idx] = {
+                id: tc.id,
+                function: { name: tc.function?.name ?? "", arguments: "" },
+              };
+            else {
+              if (tc.id) tcMap[idx].id = tc.id;
+              if (tc.function?.name) tcMap[idx].function.name += tc.function.name;
+            }
+            if (tc.function?.arguments)
+              tcMap[idx].function.arguments += tc.function.arguments;
+          }
+        }
+      } catch {
+        /* skip */
+      }
+    }
+    return { content: content || null, tool_calls: Object.values(tcMap) };
+  }
+  return null;
+}
+
+function _renderUserContent(msg: _ChatMsg): React.ReactNode {
+  const { content, role, tool_call_id } = msg;
+
+  if (role === "tool") {
+    const text =
+      typeof content === "string"
+        ? content
+        : JSON.stringify(content, null, 2);
+    return (
+      <div>
+        {tool_call_id && (
+          <div className="mb-1 font-mono text-xs text-muted-foreground">
+            id: {tool_call_id}
+          </div>
+        )}
+        <pre className="whitespace-pre-wrap break-words rounded bg-muted/50 p-2 font-mono text-xs">
+          {text}
+        </pre>
+      </div>
+    );
+  }
+
+  if (typeof content === "string") {
+    return <p className="whitespace-pre-wrap break-words">{content}</p>;
+  }
+
+  if (Array.isArray(content)) {
+    return (
+      <div className="space-y-2">
+        {content.map((part, i) => {
+          if (part.type === "text") {
+            return (
+              <p key={i} className="whitespace-pre-wrap break-words">
+                {part.text}
+              </p>
+            );
+          }
+          if (part.type === "image_url") {
+            const url = (part.image_url?.url as string) ?? "";
+            return (
+              <div
+                key={i}
+                className="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs text-muted-foreground"
+              >
+                [image{url && !url.startsWith("data:") ? `: ${url}` : ""}]
+              </div>
+            );
+          }
+          if (part.type === "tool_result" || part.type === "tool_use") {
+            const inner =
+              typeof part.content === "string"
+                ? part.content
+                : JSON.stringify(part.content, null, 2);
+            return (
+              <pre
+                key={i}
+                className="whitespace-pre-wrap break-words rounded bg-muted/50 p-2 font-mono text-xs"
+              >
+                {inner}
+              </pre>
+            );
+          }
+          return (
+            <span key={i} className="text-xs text-muted-foreground">
+              [{part.type}]
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return <span className="text-xs text-muted-foreground">—</span>;
+}
+
+
 interface LogDetailProps {
   /** Log data */
   log: RequestLogDetail | null;
@@ -129,6 +294,16 @@ export function LogDetail({ log }: LogDetailProps) {
     setCurlCopied(true);
     setTimeout(() => setCurlCopied(false), 1500);
   };
+
+  const previewUserMsg = useMemo(
+    () => log ? _getLastUserMsg(log.request_body?.messages) : null,
+    [log],
+  );
+  const previewAssistantMsg = useMemo(
+    () => log ? _extractAssistantMsg(log.response_body) : null,
+    [log],
+  );
+
 
   const tabButtonClass = (tab: typeof activeTab) =>
     `inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
@@ -488,6 +663,91 @@ export function LogDetail({ log }: LogDetailProps) {
             <div className="break-words font-mono text-sm text-red-700">
               {log.error_info}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {(previewUserMsg ||
+        (previewAssistantMsg &&
+          (previewAssistantMsg.content ||
+            (previewAssistantMsg.tool_calls?.length ?? 0) > 0))) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">
+              {t("detail.conversationPreview")}
+            </CardTitle>
+            <div className="text-sm text-muted-foreground">
+              {t("detail.conversationPreviewDescription")}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {previewUserMsg && (
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {previewUserMsg.role === "tool" ? "tool result" : "user"}
+                  </Badge>
+                  {previewUserMsg.role === "tool" &&
+                    previewUserMsg.tool_call_id && (
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {previewUserMsg.tool_call_id}
+                      </span>
+                    )}
+                </div>
+                <div className="max-h-56 overflow-y-auto text-sm">
+                  {_renderUserContent(previewUserMsg)}
+                </div>
+              </div>
+            )}
+            {previewAssistantMsg &&
+              (previewAssistantMsg.content ||
+                (previewAssistantMsg.tool_calls?.length ?? 0) > 0) && (
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <div className="mb-2">
+                    <Badge
+                      variant="outline"
+                      className="border-blue-300 font-mono text-xs text-blue-600"
+                    >
+                      assistant
+                    </Badge>
+                  </div>
+                  <div className="max-h-56 space-y-2 overflow-y-auto text-sm">
+                    {previewAssistantMsg.content && (
+                      <p className="whitespace-pre-wrap break-words">
+                        {previewAssistantMsg.content}
+                      </p>
+                    )}
+                    {Array.isArray(previewAssistantMsg.tool_calls) &&
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      previewAssistantMsg.tool_calls.map((tc: any, i) => {
+                        const name = tc.function?.name || "(unknown)";
+                        let args = "";
+                        try {
+                          args = JSON.stringify(
+                            JSON.parse(tc.function?.arguments || "{}"),
+                            null,
+                            2,
+                          );
+                        } catch {
+                          args = tc.function?.arguments || "";
+                        }
+                        return (
+                          <div
+                            key={i}
+                            className="rounded border bg-muted/50 p-2 font-mono text-xs"
+                          >
+                            <div className="mb-1 font-semibold text-blue-600">
+                              {name}()
+                            </div>
+                            <pre className="whitespace-pre-wrap break-words text-muted-foreground">
+                              {args}
+                            </pre>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
           </CardContent>
         </Card>
       )}
