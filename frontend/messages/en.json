@@ -471,15 +471,15 @@
       },
       "circuitBreaker": "Circuit Breaker",
       "toggleStatusTooltip": "Click to toggle active/inactive",
-      "cbOpen": "Open",
-      "cbHalfOpen": "Half-Open",
-      "cbResetTooltip": "{failures} failures — click to reset",
+      "cbOpen": "Banned",
+      "cbHalfOpen": "Recovering",
+      "cbResetTooltip": "{failures} failures — click to unban",
       "resetCircuitBreaker": "Reset Circuit Breaker",
       "circuitBreakerResetTooltip": "Clear all provider circuit breaker states and resume normal routing",
       "circuitBreakerReset": "Circuit breaker states have been reset",
       "circuitBreakerResetFailed": "Reset failed, please try again",
-      "cbClosed": "Closed",
-      "cbClosedTooltip": "Click to force open circuit"
+      "cbClosed": "Normal",
+      "cbClosedTooltip": "Click to ban this provider"
     },
     "providerForm": {
       "editTitle": "Edit Provider Configuration",
