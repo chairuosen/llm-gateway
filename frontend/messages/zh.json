@@ -468,7 +468,11 @@
         "tieredEntry": "≤{max}: {input}/{output}",
         "cacheSuffix": "缓存：{cachedInput}/{cachedOutput}",
         "inheritModel": "继承模型默认值"
-      }
+      },
+      "resetCircuitBreaker": "重置熔断",
+      "circuitBreakerResetTooltip": "清除所有 Provider 的熔断状态，立即恢复正常路由",
+      "circuitBreakerReset": "熔断状态已重置",
+      "circuitBreakerResetFailed": "重置失败，请重试"
     },
     "providerForm": {
       "editTitle": "编辑供应商配置",

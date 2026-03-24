@@ -9,6 +9,7 @@ import React, { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, RefreshCw } from 'lucide-react';
 import {
   BillingDisplay,
   ModelProviderForm,
@@ -43,6 +44,7 @@ import {
   useUpdateModelProvider,
   useDeleteModelProvider,
 } from '@/lib/hooks';
+import { resetCircuitBreaker } from '@/lib/api';
 import {
   ModelMappingProvider,
   ModelMappingProviderCreate,
@@ -110,6 +112,19 @@ function ModelDetailContent() {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingMapping, setDeletingMapping] = useState<ModelMappingProvider | null>(null);
+  const [cbResetting, setCbResetting] = useState(false);
+
+  const handleResetCircuitBreaker = async () => {
+    setCbResetting(true);
+    try {
+      await resetCircuitBreaker();
+      toast.success(t('detail.circuitBreakerReset'));
+    } catch {
+      toast.error(t('detail.circuitBreakerResetFailed'));
+    } finally {
+      setCbResetting(false);
+    }
+  };
 
   const { data: model, isLoading, isError, refetch } = useModel(requestedModel);
   const { data: modelStatsData } = useModelStats({ requested_model: requestedModel });
@@ -339,6 +354,17 @@ function ModelDetailContent() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{t('detail.providerConfig')}</CardTitle>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleResetCircuitBreaker}
+              disabled={cbResetting}
+              title={t('detail.circuitBreakerResetTooltip')}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${cbResetting ? 'animate-spin' : ''}`} suppressHydrationWarning />
+              {t('detail.resetCircuitBreaker')}
+            </Button>
             {modelType === 'chat' && (
               <Button
                 variant="outline"

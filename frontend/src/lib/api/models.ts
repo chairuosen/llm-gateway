@@ -187,3 +187,7 @@ export async function testModel(
     data
   );
 }
+
+export async function resetCircuitBreaker(): Promise<{ ok: boolean; message: string }> {
+  return post<{ ok: boolean; message: string }>('/api/admin/circuit-breaker/reset', {});
+}

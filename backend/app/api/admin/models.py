@@ -19,6 +19,7 @@ from app.api.deps import (
     require_admin_auth,
 )
 from app.common.errors import AppError
+from app.services.retry_handler import circuit_breaker
 from app.common.provider_protocols import (
     ANTHROPIC_PROTOCOL,
     GEMINI_PROTOCOL,
@@ -337,6 +338,13 @@ async def _collect_stream_text(
 
 
 # ============ Model Mapping Endpoints ============
+
+
+@router.post("/circuit-breaker/reset", dependencies=[Depends(require_admin_auth)])
+async def reset_circuit_breaker():
+    """Reset all circuit breaker states (in-process singleton)."""
+    circuit_breaker.reset()
+    return {"ok": True, "message": "All circuit breaker states have been reset"}
 
 
 @router.get("/models/export", response_model=list[ModelExport])

@@ -97,6 +97,10 @@ class CircuitBreakerRegistry:
         async with self._alock:
             state = self._state(key)
             state.consecutive_failures += 1
+            logger.warning(
+                "[CB_DEBUG] record_failure key=%s consecutive_failures=%d opened_at=%s",
+                key, state.consecutive_failures, state.opened_at,
+            )
             if state.consecutive_failures >= settings.CIRCUIT_BREAKER_FAILURE_THRESHOLD:
                 if state.opened_at is None:
                     # Newly opened
@@ -126,6 +130,10 @@ class CircuitBreakerRegistry:
         key = self._key(candidate)
         async with self._alock:
             state = self._state(key)
+            logger.warning(
+                "[CB_DEBUG] record_success key=%s consecutive_failures=%d opened_at=%s",
+                key, state.consecutive_failures, state.opened_at,
+            )
             if state.opened_at is not None:
                 logger.info(
                     "Circuit CLOSED for provider key=%s after successful probe", key

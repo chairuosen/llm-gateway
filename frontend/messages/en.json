@@ -468,7 +468,11 @@
         "tieredEntry": "≤{max}: {input}/{output}",
         "cacheSuffix": "Cached: {cachedInput}/{cachedOutput}",
         "inheritModel": "Inherit model default"
-      }
+      },
+      "resetCircuitBreaker": "Reset Circuit Breaker",
+      "circuitBreakerResetTooltip": "Clear all provider circuit breaker states and resume normal routing",
+      "circuitBreakerReset": "Circuit breaker states have been reset",
+      "circuitBreakerResetFailed": "Reset failed, please try again"
     },
     "providerForm": {
       "editTitle": "Edit Provider Configuration",
