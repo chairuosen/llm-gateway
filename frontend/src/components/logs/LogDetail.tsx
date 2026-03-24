@@ -69,11 +69,13 @@ function _extractAssistantMsg(
   body: unknown,
 ): { content: string | null; tool_calls: unknown[] } | null {
   if (!body) return null;
-  // Non-streaming JSON
+
+  // Non-streaming JSON — OpenAI format
   if (typeof body === "object" && !Array.isArray(body)) {
-    const choices = (body as Record<string, unknown>).choices;
-    if (Array.isArray(choices) && choices.length > 0) {
-      const msg = (choices[0] as Record<string, unknown>).message as
+    const b = body as Record<string, unknown>;
+    // OpenAI: { choices: [{ message: { content, tool_calls } }] }
+    if (Array.isArray(b.choices) && b.choices.length > 0) {
+      const msg = (b.choices[0] as Record<string, unknown>).message as
         | Record<string, unknown>
         | undefined;
       if (msg)
@@ -82,48 +84,133 @@ function _extractAssistantMsg(
           tool_calls: (msg.tool_calls as unknown[]) ?? [],
         };
     }
+    // Anthropic non-stream: { content: [{ type, text } | { type, name, input }] }
+    if (Array.isArray(b.content)) {
+      return _extractAnthropicContent(b.content);
+    }
   }
+
   // Streaming SSE
   if (isStreamPayload(body)) {
     const text = typeof body === "string" ? body : "";
-    let content = "";
-    const tcMap: Record<
-      number,
-      { id?: string; function: { name: string; arguments: string } }
-    > = {};
-    for (const line of text.split(/\r?\n/)) {
-      const m = line.match(/^data:\s*(.+)$/);
-      if (!m) continue;
-      const p = m[1].trim();
-      if (p === "[DONE]") continue;
-      try {
-        const chunk = JSON.parse(p);
-        const delta = chunk?.choices?.[0]?.delta;
-        if (!delta) continue;
-        if (typeof delta.content === "string") content += delta.content;
-        if (Array.isArray(delta.tool_calls)) {
-          for (const tc of delta.tool_calls) {
-            const idx: number = tc.index ?? 0;
-            if (!tcMap[idx])
-              tcMap[idx] = {
-                id: tc.id,
-                function: { name: tc.function?.name ?? "", arguments: "" },
-              };
-            else {
-              if (tc.id) tcMap[idx].id = tc.id;
-              if (tc.function?.name) tcMap[idx].function.name += tc.function.name;
-            }
-            if (tc.function?.arguments)
-              tcMap[idx].function.arguments += tc.function.arguments;
-          }
-        }
-      } catch {
-        /* skip */
-      }
+    // Detect Anthropic SSE by presence of "event:" lines
+    if (/^event:/m.test(text)) {
+      return _extractAnthropicStream(text);
     }
-    return { content: content || null, tool_calls: Object.values(tcMap) };
+    return _extractOpenAIStream(text);
   }
   return null;
+}
+
+function _extractAnthropicContent(
+  blocks: unknown[],
+): { content: string | null; tool_calls: unknown[] } {
+  let text = "";
+  const tool_calls: unknown[] = [];
+  for (const blk of blocks) {
+    const b = blk as Record<string, unknown>;
+    if (b.type === "text") text += (b.text as string) ?? "";
+    if (b.type === "tool_use") {
+      tool_calls.push({
+        id: b.id,
+        function: {
+          name: b.name,
+          arguments:
+            typeof b.input === "string"
+              ? b.input
+              : JSON.stringify(b.input ?? {}, null, 2),
+        },
+      });
+    }
+  }
+  return { content: text || null, tool_calls };
+}
+
+function _extractAnthropicStream(
+  text: string,
+): { content: string | null; tool_calls: unknown[] } {
+  let content = "";
+  // Map block index → { id, name, input_json }
+  const tcMap: Record<
+    number,
+    { id: string; name: string; input_json: string }
+  > = {};
+
+  for (const line of text.split(/\r?\n/)) {
+    const m = line.match(/^data:\s*(.+)$/);
+    if (!m) continue;
+    try {
+      const ev = JSON.parse(m[1].trim());
+      if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") {
+        tcMap[ev.index as number] = {
+          id: ev.content_block.id,
+          name: ev.content_block.name,
+          input_json: "",
+        };
+      }
+      if (ev.type === "content_block_delta") {
+        const d = ev.delta as Record<string, unknown>;
+        if (d.type === "text_delta") content += (d.text as string) ?? "";
+        if (d.type === "input_json_delta")
+          tcMap[ev.index as number].input_json +=
+            (d.partial_json as string) ?? "";
+      }
+    } catch {
+      /* skip */
+    }
+  }
+
+  const tool_calls = Object.values(tcMap).map((tc) => ({
+    id: tc.id,
+    function: { name: tc.name, arguments: tc.input_json },
+  }));
+  return { content: content || null, tool_calls };
+}
+
+function _extractOpenAIStream(
+  text: string,
+): { content: string | null; tool_calls: unknown[] } {
+  let content = "";
+  const tcMap: Record<
+    number,
+    { id?: string; function: { name: string; arguments: string } }
+  > = {};
+
+  for (const line of text.split(/\r?\n/)) {
+    const m = line.match(/^data:\s*(.+)$/);
+    if (!m) continue;
+    const p = m[1].trim();
+    if (p === "[DONE]") continue;
+    try {
+      const chunk = JSON.parse(p);
+      const delta = chunk?.choices?.[0]?.delta;
+      if (!delta) continue;
+      if (typeof delta.content === "string") content += delta.content;
+      if (Array.isArray(delta.tool_calls)) {
+        for (const tc of delta.tool_calls) {
+          const idx: number = tc.index ?? 0;
+          if (!tcMap[idx])
+            tcMap[idx] = {
+              id: tc.id,
+              function: { name: tc.function?.name ?? "", arguments: "" },
+            };
+          else {
+            if (tc.id) tcMap[idx].id = tc.id;
+            if (tc.function?.name)
+              tcMap[idx].function.name += tc.function.name;
+          }
+          if (tc.function?.arguments)
+            tcMap[idx].function.arguments += tc.function.arguments;
+        }
+      }
+    } catch {
+      /* skip */
+    }
+  }
+  return {
+    content: content || null,
+    tool_calls: Object.values(tcMap),
+  };
 }
 
 function _renderUserContent(msg: _ChatMsg): React.ReactNode {
