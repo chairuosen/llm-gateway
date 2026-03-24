@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # Number of consecutive failures before a provider is circuit-broken
     CIRCUIT_BREAKER_FAILURE_THRESHOLD: int = 2
     # Cooldown duration in seconds after circuit opens (provider is skipped during this period)
-    CIRCUIT_BREAKER_COOLDOWN_SECONDS: int = 300
+    CIRCUIT_BREAKER_COOLDOWN_SECONDS: int = 1800
     # Enable circuit breaker (set to False to disable)
     CIRCUIT_BREAKER_ENABLED: bool = True
 
