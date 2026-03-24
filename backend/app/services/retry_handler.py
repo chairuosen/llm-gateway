@@ -148,6 +148,44 @@ class CircuitBreakerRegistry:
         else:
             self._states.clear()
 
+    def reset_by_key(self, key: str) -> bool:
+        """Reset circuit state for a specific key. Returns True if the key existed."""
+        if key in self._states:
+            del self._states[key]
+            return True
+        return False
+
+    def get_states_snapshot(self) -> dict:
+        """
+        Return a snapshot of all circuit states.
+
+        Returns a dict keyed by the internal key string, with:
+          - status: "CLOSED" | "OPEN" | "HALF_OPEN"
+          - consecutive_failures: int
+          - opened_seconds_ago: float | None
+        """
+        settings = get_settings()
+        cooldown = settings.CIRCUIT_BREAKER_COOLDOWN_SECONDS
+        now = time.monotonic()
+        result = {}
+        for key, state in list(self._states.items()):
+            if state.opened_at is None:
+                status = "CLOSED"
+                opened_seconds_ago = None
+            else:
+                elapsed = now - state.opened_at
+                if elapsed >= cooldown:
+                    status = "HALF_OPEN"
+                else:
+                    status = "OPEN"
+                opened_seconds_ago = elapsed
+            result[key] = {
+                "status": status,
+                "consecutive_failures": state.consecutive_failures,
+                "opened_seconds_ago": opened_seconds_ago,
+            }
+        return result
+
 
 # Global singleton shared across all RetryHandler instances in this process.
 circuit_breaker = CircuitBreakerRegistry()

@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { Suspense, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -27,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Pencil, Trash2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, RefreshCw, ZapOff } from 'lucide-react';
 import {
   BillingDisplay,
   ModelProviderForm,
@@ -44,7 +44,7 @@ import {
   useUpdateModelProvider,
   useDeleteModelProvider,
 } from '@/lib/hooks';
-import { resetCircuitBreaker } from '@/lib/api';
+import { resetCircuitBreaker, getCircuitBreakerStates, resetMappingCircuitBreaker, CircuitBreakerState } from '@/lib/api';
 import {
   ModelMappingProvider,
   ModelMappingProviderCreate,
@@ -113,16 +113,60 @@ function ModelDetailContent() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingMapping, setDeletingMapping] = useState<ModelMappingProvider | null>(null);
   const [cbResetting, setCbResetting] = useState(false);
+  const [cbStates, setCbStates] = useState<Record<string, CircuitBreakerState>>({});
+  const [cbTogglingId, setCbTogglingId] = useState<number | null>(null);
+  const [statusTogglingId, setStatusTogglingId] = useState<number | null>(null);
+  const cbPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchCbStates = useCallback(async () => {
+    try {
+      const states = await getCircuitBreakerStates();
+      setCbStates(states);
+    } catch {
+      // silent fail – CB states are best-effort
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCbStates();
+    cbPollRef.current = setInterval(fetchCbStates, 15000);
+    return () => { if (cbPollRef.current) clearInterval(cbPollRef.current); };
+  }, [fetchCbStates]);
 
   const handleResetCircuitBreaker = async () => {
     setCbResetting(true);
     try {
       await resetCircuitBreaker();
       toast.success(t('detail.circuitBreakerReset'));
+      await fetchCbStates();
     } catch {
       toast.error(t('detail.circuitBreakerResetFailed'));
     } finally {
       setCbResetting(false);
+    }
+  };
+
+  const handleToggleMappingCb = async (mappingId: number) => {
+    setCbTogglingId(mappingId);
+    try {
+      await resetMappingCircuitBreaker(mappingId);
+      await fetchCbStates();
+    } catch {
+      toast.error(t('detail.circuitBreakerResetFailed'));
+    } finally {
+      setCbTogglingId(null);
+    }
+  };
+
+  const handleToggleStatus = async (mapping: ModelMappingProvider) => {
+    setStatusTogglingId(mapping.id);
+    try {
+      await updateMutation.mutateAsync({ id: mapping.id, data: { is_active: !mapping.is_active } });
+      refetch();
+    } catch {
+      // Errors are surfaced via mutation onError toast
+    } finally {
+      setStatusTogglingId(null);
     }
   };
 
@@ -399,6 +443,7 @@ function ModelDetailContent() {
                   <TableHead>{t('detail.weight')}</TableHead>
                   <TableHead>{t('detail.rules')}</TableHead>
                   <TableHead>{t('detail.status')}</TableHead>
+                  <TableHead>{t('detail.circuitBreaker')}</TableHead>
                   <TableHead className="text-right">{t('detail.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -474,24 +519,62 @@ function ModelDetailContent() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {isProviderDisabledWhileMappingActive ? (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge className={mappingStatus.className}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                className="cursor-pointer"
+                                disabled={statusTogglingId === mapping.id}
+                                onClick={() => handleToggleStatus(mapping)}
+                                title={t('detail.toggleStatusTooltip')}
+                              >
+                                <Badge className={`${mappingStatus.className} ${statusTogglingId === mapping.id ? 'opacity-50' : 'hover:opacity-80'}`}>
                                   {mappingStatus.text}
                                 </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {t('detail.providerDisabledTooltip')}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ) : (
-                          <Badge className={mappingStatus.className}>
-                            {mappingStatus.text}
-                          </Badge>
-                        )}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {isProviderDisabledWhileMappingActive
+                                ? t('detail.providerDisabledTooltip')
+                                : t('detail.toggleStatusTooltip')}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const cbKey = `mapping:${mapping.id}`;
+                          const cbState = cbStates[cbKey];
+                          const isOpen = cbState?.status === 'OPEN';
+                          const isHalfOpen = cbState?.status === 'HALF_OPEN';
+                          const isToggling = cbTogglingId === mapping.id;
+                          if (!cbState || cbState.status === 'CLOSED') {
+                            return <span className="text-xs text-muted-foreground">—</span>;
+                          }
+                          return (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    className="cursor-pointer"
+                                    disabled={isToggling}
+                                    onClick={() => handleToggleMappingCb(mapping.id)}
+                                  >
+                                    <Badge className={`text-xs ${isToggling ? 'opacity-50' : 'hover:opacity-80'} ${isOpen ? 'border-transparent bg-red-500/15 text-red-700 dark:text-red-300' : 'border-transparent bg-amber-500/15 text-amber-700 dark:text-amber-300'}`}>
+                                      {isHalfOpen ? t('detail.cbHalfOpen') : t('detail.cbOpen')}
+                                      {isOpen && cbState.opened_seconds_ago != null && (
+                                        <span className="ml-1 opacity-70">{Math.floor(cbState.opened_seconds_ago)}s</span>
+                                      )}
+                                    </Badge>
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {t('detail.cbResetTooltip', { failures: cbState.consecutive_failures })}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">

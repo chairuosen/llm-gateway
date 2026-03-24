@@ -191,3 +191,19 @@ export async function testModel(
 export async function resetCircuitBreaker(): Promise<{ ok: boolean; message: string }> {
   return post<{ ok: boolean; message: string }>('/api/admin/circuit-breaker/reset', {});
 }
+
+export type CircuitBreakerStatus = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+
+export interface CircuitBreakerState {
+  status: CircuitBreakerStatus;
+  consecutive_failures: number;
+  opened_seconds_ago: number | null;
+}
+
+export async function getCircuitBreakerStates(): Promise<Record<string, CircuitBreakerState>> {
+  return get<Record<string, CircuitBreakerState>>('/api/admin/circuit-breaker/states');
+}
+
+export async function resetMappingCircuitBreaker(mappingId: number): Promise<{ ok: boolean; existed: boolean; key: string }> {
+  return post<{ ok: boolean; existed: boolean; key: string }>(`/api/admin/circuit-breaker/reset/mapping/${mappingId}`, {});
+}

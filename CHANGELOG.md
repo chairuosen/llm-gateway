@@ -7,6 +7,7 @@
 
 | 日期 | 类型 | 描述 | 详情 |
 |------|------|------|------|
+| 2026-03-25 | feat | Provider 列表展示熔断状态徽章（OPEN/HALF-OPEN），支持单独重置；status 徽章可点击切换启用禁用 | — |
 | 2026-03-24 | feat | 模型详情页新增「重置熔断状态」按钮，支持一键清除所有 provider 熔断状态 | — |
 | 2026-03-24 | feat | 新增 POST /api/admin/circuit-breaker/reset 接口重置熔断器 | — |
 | 2026-03-24 | feat | 日志详情页新增对话预览 box，展示最新一轮 user 消息与 assistant 响应 | — |

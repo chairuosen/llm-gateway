@@ -469,6 +469,11 @@
         "cacheSuffix": "Cached: {cachedInput}/{cachedOutput}",
         "inheritModel": "Inherit model default"
       },
+      "circuitBreaker": "Circuit Breaker",
+      "toggleStatusTooltip": "Click to toggle active/inactive",
+      "cbOpen": "Open",
+      "cbHalfOpen": "Half-Open",
+      "cbResetTooltip": "{failures} failures — click to reset",
       "resetCircuitBreaker": "Reset Circuit Breaker",
       "circuitBreakerResetTooltip": "Clear all provider circuit breaker states and resume normal routing",
       "circuitBreakerReset": "Circuit breaker states have been reset",
