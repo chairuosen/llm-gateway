@@ -641,7 +641,9 @@
     "description": "查看代理请求日志，支持多条件筛选",
     "unknown": "未知",
     "actions": {
-      "refresh": "刷新"
+      "refresh": "刷新",
+      "autoRefreshOn": "自动刷新 开",
+      "autoRefreshOff": "自动刷新 关"
     },
     "timeline": {
       "title": "请求时间轴",

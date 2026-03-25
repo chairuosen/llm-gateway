@@ -641,7 +641,9 @@
     "description": "View proxy request logs, supports multi-condition filtering",
     "unknown": "Unknown",
     "actions": {
-      "refresh": "Refresh"
+      "refresh": "Refresh",
+      "autoRefreshOn": "Auto Refresh ON",
+      "autoRefreshOff": "Auto Refresh OFF"
     },
     "timeline": {
       "title": "Request Timeline",

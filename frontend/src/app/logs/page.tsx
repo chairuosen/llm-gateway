@@ -12,7 +12,7 @@ import { LogFilters, LogList, LogTimeline } from '@/components/logs';
 import { Pagination, LoadingSpinner, ErrorState, EmptyState } from '@/components/common';
 import { useApiKeys, useLogs, useLogCostStats, useModels, useProviders } from '@/lib/hooks';
 import { LogQueryParams, RequestLog } from '@/types';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -159,6 +159,47 @@ function LogsContent() {
 
   // Data query
   const { data, isLoading, isError, refetch } = useLogs(resolvedFilters);
+
+  // Auto-refresh: active when no filters applied and on page 1
+  const isDefaultView = useMemo(() => {
+    return (
+      !filters.start_time &&
+      !filters.end_time &&
+      !filters.requested_model &&
+      !filters.target_model &&
+      !filters.provider_id &&
+      filters.status_min == null &&
+      filters.status_max == null &&
+      filters.has_error == null &&
+      !filters.api_key_id &&
+      !filters.api_key_name &&
+      filters.retry_count_min == null &&
+      filters.retry_count_max == null &&
+      filters.input_tokens_min == null &&
+      filters.input_tokens_max == null &&
+      filters.total_time_min == null &&
+      filters.total_time_max == null &&
+      (filters.page ?? 1) === 1 &&
+      (filters.sort_by ?? DEFAULT_FILTERS.sort_by) === DEFAULT_FILTERS.sort_by &&
+      (filters.sort_order ?? DEFAULT_FILTERS.sort_order) === DEFAULT_FILTERS.sort_order
+    );
+  }, [filters]);
+
+  const [autoRefresh, setAutoRefresh] = useState(false);
+
+  // Sync auto-refresh toggle with system judgment (follow isDefaultView transitions)
+  useEffect(() => {
+    setAutoRefresh(isDefaultView);
+  }, [isDefaultView]);
+
+  // Auto-refresh interval: refetch every 3s when enabled
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const id = setInterval(() => {
+      if (!isLoading) void refetch();
+    }, 3000);
+    return () => clearInterval(id);
+  }, [autoRefresh, isLoading, refetch]);
   const { data: providersData } = useProviders({ is_active: true, page: 1, page_size: 1000 });
   const { data: modelsData } = useModels({ is_active: true, page: 1, page_size: 1000 });
   const { data: apiKeysData } = useApiKeys({ is_active: true, page: 1, page_size: 1000 });
@@ -403,27 +444,43 @@ function LogsContent() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{t('list.title')}</CardTitle>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8"
-            aria-label={t('actions.refresh')}
-            onClick={async () => {
-              try {
-                await refetch();
-                toast.success(t('toasts.refreshSuccess'));
-              } catch {
-                toast.error(t('toasts.refreshFailed'));
-              }
-            }}
-            disabled={isLoading}
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
-              suppressHydrationWarning
-            />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant={autoRefresh ? 'default' : 'outline'}
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => setAutoRefresh((v) => !v)}
+              title={autoRefresh ? t('actions.autoRefreshOn') : t('actions.autoRefreshOff')}
+            >
+              <Activity
+                className={`h-3.5 w-3.5 ${autoRefresh ? 'animate-pulse' : ''}`}
+                suppressHydrationWarning
+              />
+              <span className="text-xs">{autoRefresh ? t('actions.autoRefreshOn') : t('actions.autoRefreshOff')}</span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8"
+              aria-label={t('actions.refresh')}
+              onClick={async () => {
+                try {
+                  await refetch();
+                  toast.success(t('toasts.refreshSuccess'));
+                } catch {
+                  toast.error(t('toasts.refreshFailed'));
+                }
+              }}
+              disabled={isLoading}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
+                suppressHydrationWarning
+              />
+            </Button>
+          </div>
           
         </CardHeader>
         <CardContent>
