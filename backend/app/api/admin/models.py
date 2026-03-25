@@ -701,6 +701,31 @@ async def bulk_upgrade_model_providers(
         return JSONResponse(content=e.to_dict(), status_code=e.status_code)
 
 
+class ProviderPriorityItem(BaseModel):
+    id: int
+    priority: int
+
+
+class BulkReorderRequest(BaseModel):
+    items: list[ProviderPriorityItem]
+
+
+@router.post("/model-providers/bulk-reorder")
+async def bulk_reorder_model_providers(
+    data: BulkReorderRequest,
+    service: ModelServiceDep,
+):
+    """Bulk update provider priorities for drag-and-drop reordering."""
+    for item in data.items:
+        try:
+            await service.update_provider_mapping(
+                item.id, ModelMappingProviderUpdate(priority=item.priority)
+            )
+        except AppError:
+            pass
+    return {"ok": True, "updated": len(data.items)}
+
+
 @router.put(
     "/model-providers/{mapping_id}", response_model=ModelMappingProviderResponse
 )

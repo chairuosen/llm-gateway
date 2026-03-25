@@ -27,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Pencil, Trash2, RefreshCw, ZapOff } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, RefreshCw } from 'lucide-react';
 import {
   BillingDisplay,
   ModelProviderForm,
@@ -56,6 +56,25 @@ import {
 import { formatDateTime, getActiveStatus, formatDuration, normalizeReturnTo } from '@/lib/utils';
 import { ProtocolType } from '@/types/provider';
 import { getProviderProtocolLabel, useProviderProtocolConfigs } from '@/lib/providerProtocols';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical } from 'lucide-react';
+import { bulkReorderProviders } from '@/lib/api';
 
 function protocolLabel(
   protocol: ProtocolType,
@@ -85,6 +104,30 @@ function formatRate(value: number | null | undefined) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+
+
+function SortableTableRow({
+  id,
+  disabled = false,
+  children,
+}: {
+  id: string;
+  disabled?: boolean;
+  children: (dragListeners: Record<string, unknown> | undefined) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id, disabled });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    ...(isDragging ? { opacity: 0.5, zIndex: 1, position: 'relative' } : {}),
+  };
+  return (
+    <TableRow ref={setNodeRef} style={style} {...attributes}>
+      {children(listeners as Record<string, unknown> | undefined)}
+    </TableRow>
+  );
+}
 
 export default function ModelDetailPage() {
   return (
@@ -117,6 +160,12 @@ function ModelDetailContent() {
   const [cbTogglingId, setCbTogglingId] = useState<number | null>(null);
   const [statusTogglingId, setStatusTogglingId] = useState<number | null>(null);
   const cbPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [orderedProviders, setOrderedProviders] = useState<ModelMappingProvider[]>([]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const fetchCbStates = useCallback(async () => {
     try {
@@ -187,6 +236,34 @@ function ModelDetailContent() {
   const createMutation = useCreateModelProvider();
   const updateMutation = useUpdateModelProvider();
   const deleteMutation = useDeleteModelProvider();
+
+  // Sync ordered providers when model data loads
+  useEffect(() => {
+    if (model?.providers) {
+      const sorted = [...model.providers].sort((a, b) => a.priority - b.priority);
+      setOrderedProviders(sorted);
+    }
+  }, [model?.providers]);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = orderedProviders.findIndex((p) => String(p.id) === String(active.id));
+    const newIndex = orderedProviders.findIndex((p) => String(p.id) === String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(orderedProviders, oldIndex, newIndex).map((p, i) => ({
+      ...p,
+      priority: i + 1,
+    }));
+    setOrderedProviders(reordered);
+    try {
+      await bulkReorderProviders(reordered.map((p) => ({ id: p.id, priority: p.priority })));
+      refetch();
+    } catch {
+      toast.error(t('detail.reorderFailed'));
+      setOrderedProviders(orderedProviders);
+    }
+  };
 
   const handleAddProvider = () => {
     setEditingMapping(null);
@@ -440,6 +517,7 @@ function ModelDetailContent() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  {model.strategy === 'priority' && <TableHead className="w-8" />}
                   <TableHead>{t('detail.provider')}</TableHead>
                   <TableHead>{t('detail.targetModel')}</TableHead>
                   {supportsBilling && <TableHead>{t('detail.billing')}</TableHead>}
@@ -452,7 +530,13 @@ function ModelDetailContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {model.providers.map((mapping) => {
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext
+                    items={orderedProviders.map((p) => String(p.id))}
+                    strategy={verticalListSortingStrategy}
+                    disabled={model.strategy !== 'priority'}
+                  >
+                {orderedProviders.map((mapping) => {
                   const providerIsActive =
                     mapping.provider_is_active ??
                     providersById.get(mapping.provider_id)?.is_active ??
@@ -476,7 +560,15 @@ function ModelDetailContent() {
                     mapping.provider_protocol ??
                     providersById.get(mapping.provider_id)?.protocol;
                   return (
-                    <TableRow key={mapping.id}>
+                    <SortableTableRow key={mapping.id} id={String(mapping.id)} disabled={model.strategy !== 'priority'}>
+                      {(dragListeners) => (<>
+                      {model.strategy === 'priority' && (
+                        <TableCell className="w-8 p-1">
+                          <span className="flex cursor-grab text-muted-foreground touch-none" {...(dragListeners ?? {})}>
+                            <GripVertical className="h-4 w-4" suppressHydrationWarning />
+                          </span>
+                        </TableCell>
+                      )}
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           <span>{mapping.provider_name}</span>
@@ -613,9 +705,12 @@ function ModelDetailContent() {
                           </Button>
                         </div>
                       </TableCell>
-                    </TableRow>
+                  </>)}
+                    </SortableTableRow>
                   );
                 })}
+                  </SortableContext>
+                </DndContext>
               </TableBody>
             </Table>
           ) : (
@@ -635,6 +730,7 @@ function ModelDetailContent() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  {model.strategy === 'priority' && <TableHead className="w-8" />}
                   <TableHead>{t('detail.provider')}</TableHead>
                   <TableHead>{t('detail.targetModel')}</TableHead>
                   <TableHead>{t('detail.avgResponse')}</TableHead>

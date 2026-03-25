@@ -479,7 +479,8 @@
       "circuitBreakerReset": "Circuit breaker states have been reset",
       "circuitBreakerResetFailed": "Reset failed, please try again",
       "cbClosed": "Normal",
-      "cbClosedTooltip": "Click to ban this provider"
+      "cbClosedTooltip": "Click to ban this provider",
+      "reorderFailed": "Reorder failed, please try again"
     },
     "providerForm": {
       "editTitle": "Edit Provider Configuration",

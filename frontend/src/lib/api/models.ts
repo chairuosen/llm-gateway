@@ -211,3 +211,12 @@ export async function resetMappingCircuitBreaker(mappingId: number): Promise<{ o
 export async function openMappingCircuitBreaker(mappingId: number): Promise<{ ok: boolean; key: string }> {
   return post<{ ok: boolean; key: string }>(`/api/admin/circuit-breaker/open/mapping/${mappingId}`, {});
 }
+
+export interface ProviderPriorityItem {
+  id: number;
+  priority: number;
+}
+
+export async function bulkReorderProviders(items: ProviderPriorityItem[]): Promise<{ ok: boolean; updated: number }> {
+  return post<{ ok: boolean; updated: number }>(`${MODEL_PROVIDERS_URL}/bulk-reorder`, { items });
+}

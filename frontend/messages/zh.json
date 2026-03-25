@@ -479,7 +479,8 @@
       "circuitBreakerReset": "熔断状态已重置",
       "circuitBreakerResetFailed": "重置失败，请重试",
       "cbClosed": "正常",
-      "cbClosedTooltip": "点击屏蔽此供应商"
+      "cbClosedTooltip": "点击屏蔽此供应商",
+      "reorderFailed": "排序保存失败，请重试"
     },
     "providerForm": {
       "editTitle": "编辑供应商配置",
