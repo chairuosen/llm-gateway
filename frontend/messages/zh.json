@@ -622,6 +622,7 @@
       "response": "响应",
       "noResponse": "暂无响应。",
       "allProviders": "全部供应商",
+      "inactive": "未激活",
       "selectProvider": "选择供应商",
       "testing": "测试中...",
       "batchTesting": "正在批量测试...",

@@ -88,6 +88,10 @@ export function ModelTestDialog({
     return (model?.providers ?? []).filter((p) => p.is_active && p.provider_is_active !== false);
   }, [model?.providers]);
 
+  const allProviders = useMemo(() => {
+    return model?.providers ?? [];
+  }, [model?.providers]);
+
   const isBatchMode = selectedProviderId === ALL_PROVIDERS_VALUE;
   const isTesting = isBatchMode
     ? providerResults.some((r) => r.loading)
@@ -242,7 +246,7 @@ export function ModelTestDialog({
             <Select
               value={selectedProviderId}
               onValueChange={setSelectedProviderId}
-              disabled={activeProviders.length === 0}
+              disabled={allProviders.length === 0}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -251,11 +255,17 @@ export function ModelTestDialog({
                 <SelectItem value={ALL_PROVIDERS_VALUE}>
                   {t('testDialog.allProviders')}
                 </SelectItem>
-                {activeProviders.map((p) => (
-                  <SelectItem key={p.provider_id} value={String(p.provider_id)}>
-                    {p.provider_name}
-                  </SelectItem>
-                ))}
+                {allProviders.map((p) => {
+                  const isInactive = !p.is_active || p.provider_is_active === false;
+                  return (
+                    <SelectItem key={p.provider_id} value={String(p.provider_id)}>
+                      <span className={isInactive ? 'text-muted-foreground' : undefined}>
+                        {p.provider_name}
+                        {isInactive && <span className="ml-1 text-xs opacity-60">({t('testDialog.inactive')})</span>}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>

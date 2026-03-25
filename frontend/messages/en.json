@@ -622,6 +622,7 @@
       "response": "Response",
       "noResponse": "No response yet.",
       "allProviders": "All Providers",
+      "inactive": "inactive",
       "selectProvider": "Select Provider",
       "testing": "Testing...",
       "batchTesting": "Batch testing...",
