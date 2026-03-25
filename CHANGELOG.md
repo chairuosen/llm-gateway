@@ -7,6 +7,8 @@
 
 | 日期 | 类型 | 描述 | 详情 |
 |------|------|------|------|
+| 2026-03-25 | fix | 修复 provider extra_query_params 保存后丢失的 bug（repo 及 service 响应映射遗漏字段） | — |
+| 2026-03-25 | feat | Provider 配置新增自定义 URL Query 参数（extra_query_params），支持如 /v1/messages?beta=true 场景 | — |
 | 2026-03-25 | fix | 模型测试 provider 下拉框放开未激活供应商，可选测试（未激活有灰色标注） | — |
 | 2026-03-25 | feat | 日志页新增自动刷新（默认视图每3秒拉取），可手动切换开关，与筛选状态联动 | — |
 | 2026-03-25 | feat | 模型详情页 Provider 列表支持拖拽排序（priority 策略下），拖拽后自动批量更新优先级 | — |
