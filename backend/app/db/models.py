@@ -61,6 +61,8 @@ class ServiceProvider(Base):
     _api_key: Mapped[Optional[str]] = mapped_column("api_key", Text, nullable=True)
     # Extra Headers (JSON format)
     extra_headers: Mapped[Optional[dict]] = mapped_column(SQLiteJSON, nullable=True)
+    # Extra URL Query Parameters (JSON format, e.g. {"beta": "true"})
+    extra_query_params: Mapped[Optional[dict]] = mapped_column(SQLiteJSON, nullable=True)
     # Provider Options (JSON format)
     provider_options: Mapped[Optional[dict]] = mapped_column(SQLiteJSON, nullable=True)
     # Proxy Enabled

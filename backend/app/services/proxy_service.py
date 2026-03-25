@@ -618,6 +618,7 @@ class ProxyService:
                     if force_parse_response
                     else ("raw" if same_protocol else "parsed"),
                     extra_headers=candidate.extra_headers,
+                    extra_query_params=candidate.extra_query_params,
                     proxy_config=proxy_config,
                 )
             except Exception as e:
@@ -1081,6 +1082,7 @@ class ProxyService:
                 body=supplier_body,
                 target_model=candidate.target_model,
                 extra_headers=candidate.extra_headers,
+                extra_query_params=candidate.extra_query_params,
                 proxy_config=proxy_config,
             )
 

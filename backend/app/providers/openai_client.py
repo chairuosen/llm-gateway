@@ -45,6 +45,7 @@ class OpenAIClient(ProviderClient):
         target_model: str,
         response_mode: str = "parsed",
         extra_headers: Optional[dict[str, str]] = None,
+        extra_query_params: Optional[dict[str, str]] = None,
         proxy_config: Optional[dict[str, str]] = None,
     ) -> ProviderResponse:
         """
@@ -119,6 +120,8 @@ class OpenAIClient(ProviderClient):
                     "url": url,
                     "headers": prepared_headers,
                 }
+                if extra_query_params:
+                    request_kwargs["params"] = extra_query_params
                 if prepared_files is not None:
                     request_kwargs["data"] = prepared_data
                     request_kwargs["files"] = prepared_files
@@ -180,6 +183,7 @@ class OpenAIClient(ProviderClient):
         base_url: str,
         api_key: Optional[str],
         extra_headers: Optional[dict[str, str]] = None,
+        extra_query_params: Optional[dict[str, str]] = None,
         proxy_config: Optional[dict[str, str]] = None,
     ) -> ProviderResponse:
         """
@@ -266,6 +270,7 @@ class OpenAIClient(ProviderClient):
         body: dict[str, Any],
         target_model: str,
         extra_headers: Optional[dict[str, str]] = None,
+        extra_query_params: Optional[dict[str, str]] = None,
         proxy_config: Optional[dict[str, str]] = None,
     ) -> AsyncGenerator[tuple[bytes, ProviderResponse], None]:
         """
@@ -339,6 +344,8 @@ class OpenAIClient(ProviderClient):
                     "url": url,
                     "headers": prepared_headers,
                 }
+                if extra_query_params:
+                    stream_kwargs["params"] = extra_query_params
                 if prepared_files is not None:
                     stream_kwargs["data"] = prepared_data
                     stream_kwargs["files"] = prepared_files

@@ -304,6 +304,13 @@
         "keyPlaceholder": "Key",
         "valuePlaceholder": "Value"
       },
+      "extraQueryParams": {
+        "label": "URL Query Params",
+        "add": "Add",
+        "empty": "No custom query params, e.g. beta=true.",
+        "keyPlaceholder": "Key",
+        "valuePlaceholder": "Value"
+      },
       "defaultParams": {
         "label": "Default Parameters",
         "add": "Add",

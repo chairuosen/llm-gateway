@@ -85,6 +85,7 @@ class AnthropicClient(ProviderClient):
         target_model: str,
         response_mode: str = "parsed",
         extra_headers: Optional[dict[str, str]] = None,
+        extra_query_params: Optional[dict[str, str]] = None,
         proxy_config: Optional[dict[str, str]] = None,
     ) -> ProviderResponse:
         """
@@ -133,6 +134,7 @@ class AnthropicClient(ProviderClient):
                     url=url,
                     headers=prepared_headers,
                     json=prepared_body,
+                    params=extra_query_params or None,
                 )
                 
                 timer.mark_first_byte()
@@ -188,6 +190,7 @@ class AnthropicClient(ProviderClient):
         base_url: str,
         api_key: Optional[str],
         extra_headers: Optional[dict[str, str]] = None,
+        extra_query_params: Optional[dict[str, str]] = None,
         proxy_config: Optional[dict[str, str]] = None,
     ) -> ProviderResponse:
         """
@@ -274,6 +277,7 @@ class AnthropicClient(ProviderClient):
         body: dict[str, Any],
         target_model: str,
         extra_headers: Optional[dict[str, str]] = None,
+        extra_query_params: Optional[dict[str, str]] = None,
         proxy_config: Optional[dict[str, str]] = None,
     ) -> AsyncGenerator[tuple[bytes, ProviderResponse], None]:
         """
@@ -322,6 +326,7 @@ class AnthropicClient(ProviderClient):
                     url=url,
                     headers=prepared_headers,
                     json=prepared_body,
+                    params=extra_query_params or None,
                 ) as response:
                     provider_response = ProviderResponse(
                         status_code=response.status_code,

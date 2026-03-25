@@ -21,6 +21,7 @@ export interface Provider {
   protocol: ProtocolType;
   api_key?: string;          // Sanitized display
   extra_headers?: Record<string, string>;
+  extra_query_params?: Record<string, string>;
   provider_options?: ProviderOptions;
   proxy_enabled?: boolean;
   proxy_url?: string; // Sanitized display
@@ -37,6 +38,7 @@ export interface ProviderCreate {
   protocol: ProtocolType;
   api_key?: string;
   extra_headers?: Record<string, string>;
+  extra_query_params?: Record<string, string>;
   provider_options?: ProviderOptions;
   proxy_enabled?: boolean;
   proxy_url?: string;
@@ -51,6 +53,7 @@ export interface ProviderUpdate {
   protocol?: ProtocolType;
   api_key?: string;
   extra_headers?: Record<string, string>;
+  extra_query_params?: Record<string, string>;
   provider_options?: ProviderOptions;
   proxy_enabled?: boolean;
   proxy_url?: string;

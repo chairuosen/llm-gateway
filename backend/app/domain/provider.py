@@ -31,6 +31,7 @@ class ProviderBase(BaseModel):
     api_type: str = Field("chat", description="API Type (deprecated)")
     # Extra Headers
     extra_headers: Optional[dict[str, str]] = Field(None, description="Extra Headers")
+    extra_query_params: Optional[dict[str, str]] = Field(None, description="Extra URL Query Parameters")
     # Provider Options (JSON format)
     provider_options: Optional[dict[str, Any]] = Field(
         None, description="Provider Options"
@@ -70,6 +71,7 @@ class ProviderUpdate(BaseModel):
     api_type: Optional[str] = None
     api_key: Optional[str] = None
     extra_headers: Optional[dict[str, str]] = None
+    extra_query_params: Optional[dict[str, str]] = None
     provider_options: Optional[dict[str, Any]] = None
     is_active: Optional[bool] = None
     proxy_enabled: Optional[bool] = None
@@ -82,6 +84,7 @@ class Provider(ProviderBase):
     id: int = Field(..., description="Provider ID")
     api_key: Optional[str] = Field(None, description="Provider API Key")
     extra_headers: Optional[dict[str, str]] = Field(None, description="Extra Headers")
+    extra_query_params: Optional[dict[str, str]] = Field(None, description="Extra URL Query Parameters")
     provider_options: Optional[dict[str, Any]] = Field(
         None, description="Provider Options"
     )
@@ -99,6 +102,7 @@ class ProviderResponse(ProviderBase):
     # API Key Sanitized Display
     api_key: Optional[str] = Field(None, description="Provider API Key (Sanitized)")
     extra_headers: Optional[dict[str, str]] = Field(None, description="Extra Headers")
+    extra_query_params: Optional[dict[str, str]] = Field(None, description="Extra URL Query Parameters")
     provider_options: Optional[dict[str, Any]] = Field(
         None, description="Provider Options"
     )

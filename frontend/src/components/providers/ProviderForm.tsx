@@ -122,6 +122,7 @@ export function ProviderForm({
   
   // Extra headers state
   const [extraHeaders, setExtraHeaders] = useState<{ key: string; value: string }[]>([]);
+  const [extraQueryParams, setExtraQueryParams] = useState<{ key: string; value: string }[]>([]);
   const [defaultParameters, setDefaultParameters] = useState<
     { key: string; value: string }[]
   >([]);
@@ -144,6 +145,22 @@ export function ProviderForm({
     const newHeaders = [...extraHeaders];
     newHeaders[index][field] = value;
     setExtraHeaders(newHeaders);
+  };
+
+  const addQueryParam = () => {
+    setExtraQueryParams([...extraQueryParams, { key: '', value: '' }]);
+  };
+
+  const removeQueryParam = (index: number) => {
+    const next = [...extraQueryParams];
+    next.splice(index, 1);
+    setExtraQueryParams(next);
+  };
+
+  const updateQueryParam = (index: number, field: 'key' | 'value', value: string) => {
+    const next = [...extraQueryParams];
+    next[index][field] = value;
+    setExtraQueryParams(next);
   };
 
   const addDefaultParameter = () => {
@@ -222,6 +239,17 @@ export function ProviderForm({
         setExtraHeaders([]);
       }
 
+      if (provider.extra_query_params) {
+        setExtraQueryParams(
+          Object.entries(provider.extra_query_params).map(([key, value]) => ({
+            key,
+            value,
+          }))
+        );
+      } else {
+        setExtraQueryParams([]);
+      }
+
       if (provider.provider_options?.default_parameters) {
         const allowedKeys = new Set(
           DEFAULT_PARAMETER_OPTIONS.map((option) => option.value)
@@ -251,6 +279,7 @@ export function ProviderForm({
       });
       userHasEditedBaseUrl.current = false;
       setExtraHeaders([]);
+      setExtraQueryParams([]);
       setDefaultParameters(
         protocol === 'anthropic'
           ? [{ key: 'max_tokens', value: '4096' }]
@@ -294,6 +323,13 @@ export function ProviderForm({
   const onFormSubmit = (data: FormData) => {
     // Handle extra headers
     const headers: Record<string, string> = {};
+    const queryParams: Record<string, string> = {};
+    extraQueryParams.forEach(({ key, value }) => {
+      if (key && value) {
+        queryParams[key] = value;
+      }
+    });
+
     extraHeaders.forEach(({ key, value }) => {
       if (key && value) {
         headers[key] = value;
@@ -321,6 +357,7 @@ export function ProviderForm({
       protocol: data.protocol,
       is_active: data.is_active,
       extra_headers: Object.keys(headers).length > 0 ? headers : undefined,
+      extra_query_params: Object.keys(queryParams).length > 0 ? queryParams : undefined,
       provider_options: shouldIncludeOptions
         ? {
             default_parameters: Object.keys(params).length > 0 ? params : undefined,
@@ -504,6 +541,57 @@ export function ProviderForm({
                     variant="ghost"
                     size="icon"
                     onClick={() => removeHeader(index)}
+                    className="h-9 w-9 text-destructive hover:text-destructive/90"
+                  >
+                    <Trash2 className="h-4 w-4" suppressHydrationWarning />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Extra Query Params */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>{t('form.extraQueryParams.label')}</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addQueryParam}
+                className="h-8 px-2"
+              >
+                <Plus className="mr-1 h-3 w-3" suppressHydrationWarning />
+                {t('form.extraQueryParams.add')}
+              </Button>
+            </div>
+
+            {extraQueryParams.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                {t('form.extraQueryParams.empty')}
+              </p>
+            )}
+
+            <div className="space-y-2 max-h-[200px] overflow-y-auto">
+              {extraQueryParams.map((param, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Input
+                    placeholder={t('form.extraQueryParams.keyPlaceholder')}
+                    value={param.key}
+                    onChange={(e) => updateQueryParam(index, 'key', e.target.value)}
+                    className="flex-1"
+                  />
+                  <Input
+                    placeholder={t('form.extraQueryParams.valuePlaceholder')}
+                    value={param.value}
+                    onChange={(e) => updateQueryParam(index, 'value', e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeQueryParam(index)}
                     className="h-9 w-9 text-destructive hover:text-destructive/90"
                   >
                     <Trash2 className="h-4 w-4" suppressHydrationWarning />
