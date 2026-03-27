@@ -197,6 +197,26 @@ class ProxyService:
         return _truncate_log_text(str(data))
 
     @staticmethod
+    def _is_empty_response(body: Any) -> bool:
+        """Check if a successful response has no text content and no tool calls."""
+        if not isinstance(body, dict):
+            return False
+        # OpenAI format: choices[0].message
+        choices = body.get("choices")
+        if isinstance(choices, list) and choices:
+            msg = choices[0].get("message") or {}
+            content = msg.get("content")
+            tool_calls = msg.get("tool_calls")
+            has_text = bool(content and str(content).strip())
+            has_tools = bool(tool_calls)
+            return not has_text and not has_tools
+        # Anthropic format: content array
+        content_list = body.get("content")
+        if isinstance(content_list, list):
+            return len(content_list) == 0
+        return False
+
+    @staticmethod
     def _sanitize_request_body_for_log(body: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(body, dict) or "_files" not in body:
             return body
@@ -762,6 +782,21 @@ class ProxyService:
                     "total_tokens": (input_tokens or 0) + (output_tokens or 0),
                     "source": "estimated",
                 }
+
+        # Check for empty upstream response (no text, no tool calls) — not a CB failure
+        if result.success and result.response.body and self._is_empty_response(result.response.body):
+            logger.warning(
+                "Empty upstream response (no content, no tool calls): provider_id=%s, provider_name=%s",
+                result.final_provider.provider_id if result.final_provider else None,
+                result.final_provider.provider_name if result.final_provider else None,
+            )
+            result.response = ProviderResponse(
+                status_code=520,
+                error="EMPTY_UPSTREAM_RESPONSE",
+                headers=result.response.headers,
+                first_byte_delay_ms=result.response.first_byte_delay_ms,
+                total_time_ms=result.response.total_time_ms,
+            )
 
         # 10. Record log
         provider_mapping = (
@@ -1365,6 +1400,13 @@ class ProxyService:
                 return
             finally:
                 usage_result = usage_acc.finalize()
+                if stream_error is None and not usage_result.output_text:
+                    logger.warning(
+                        "Empty upstream stream response (no content, no tool calls): provider_id=%s, provider_name=%s",
+                        final_provider.provider_id if final_provider else None,
+                        final_provider.provider_name if final_provider else None,
+                    )
+                    stream_error = "EMPTY_UPSTREAM_RESPONSE"
                 usage_details = usage_result.usage_details
                 if usage_result.input_tokens:
                     input_tokens = usage_result.input_tokens
