@@ -7,6 +7,7 @@
 
 | 日期 | 类型 | 描述 | 详情 |
 |------|------|------|------|
+| 2026-03-27 | fix | 模型测试对话框：强制指定非激活 provider 时绕过 is_active 过滤，允许测试任意 provider | — |
 | 2026-03-27 | feat | 请求实时追踪：请求开始即写入 in_progress 日志，流式输出通过 Redis 实时同步到详情页，支持实时预览与进行中状态徽章 | — |
 | 2026-03-27 | feat | 流式空响应：buffer 至首个内容 chunk，无内容则拦截发送 error SSE event 替代空 framing | — |
 | 2026-03-27 | feat | proxy 检测空响应（无文本无工具调用）返回 520/EMPTY_UPSTREAM_RESPONSE 错误，不触发熔断计数 | — |

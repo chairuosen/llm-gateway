@@ -263,6 +263,7 @@ class ProxyService:
         request_protocol: str,
         headers: dict[str, str],
         body: dict[str, Any],
+        force_provider_id: Optional[int] = None,
     ) -> tuple[
         ModelMapping,
         list[CandidateProvider],
@@ -290,35 +291,57 @@ class ProxyService:
                 code="model_disabled",
             )
 
-        provider_mappings = await self.model_repo.get_provider_mappings(
-            requested_model=requested_model,
-            is_active=True,
-        )
-
-        if not provider_mappings:
-            raise ServiceError(
-                message=f"No providers configured for model '{requested_model}'",
-                code="no_available_provider",
+        if force_provider_id is not None:
+            # Test mode: include the specific provider even if inactive
+            all_mappings = await self.model_repo.get_provider_mappings(
+                requested_model=requested_model,
+                is_active=None,
+            )
+            provider_mappings = [pm for pm in all_mappings if pm.provider_id == force_provider_id]
+            if not provider_mappings:
+                raise ServiceError(
+                    message=f"Provider id={force_provider_id} is not configured for model '{requested_model}'",
+                    code="no_available_provider",
+                )
+            forced_provider = await self.provider_repo.get_by_id(force_provider_id)
+            if not forced_provider:
+                raise ServiceError(
+                    message=f"Provider id={force_provider_id} not found",
+                    code="no_available_provider",
+                )
+            providers: dict[int, Provider] = {force_provider_id: forced_provider}
+            eligible_provider_mappings = provider_mappings
+            eligible_providers = providers
+        else:
+            provider_mappings = await self.model_repo.get_provider_mappings(
+                requested_model=requested_model,
+                is_active=True,
             )
 
-        provider_ids = [pm.provider_id for pm in provider_mappings]
-        providers: dict[int, Provider] = {}
-        for pid in provider_ids:
-            provider = await self.provider_repo.get_by_id(pid)
-            if provider:
-                providers[pid] = provider
+            if not provider_mappings:
+                raise ServiceError(
+                    message=f"No providers configured for model '{requested_model}'",
+                    code="no_available_provider",
+                )
 
-        eligible_provider_mappings = [
-            pm
-            for pm in provider_mappings
-            if (provider := providers.get(pm.provider_id)) is not None and provider.is_active
-        ]
-        eligible_providers = {pid: p for pid, p in providers.items() if p.is_active}
+            provider_ids = [pm.provider_id for pm in provider_mappings]
+            providers = {}
+            for pid in provider_ids:
+                provider = await self.provider_repo.get_by_id(pid)
+                if provider:
+                    providers[pid] = provider
 
-        if not eligible_provider_mappings:
-            raise ServiceError(
-                message="No available providers", code="no_available_provider"
-            )
+            eligible_provider_mappings = [
+                pm
+                for pm in provider_mappings
+                if (provider := providers.get(pm.provider_id)) is not None and provider.is_active
+            ]
+            eligible_providers = {pid: p for pid, p in providers.items() if p.is_active}
+
+            if not eligible_provider_mappings:
+                raise ServiceError(
+                    message="No available providers", code="no_available_provider"
+                )
 
         provider_mapping_by_id = {
             self._provider_mapping_key(
@@ -415,16 +438,8 @@ class ProxyService:
             request_protocol=request_protocol,
             headers=headers,
             body=body,
+            force_provider_id=force_provider_id,
         )
-
-        # Filter to specific provider if requested
-        if force_provider_id is not None:
-            candidates = [c for c in candidates if c.provider_id == force_provider_id]
-            if not candidates:
-                raise ServiceError(
-                    message=f"Specified provider (id={force_provider_id}) is not available for this model",
-                    code="no_available_provider",
-                )
 
         token_counter = get_token_counter(protocol)
 
@@ -996,16 +1011,8 @@ class ProxyService:
             request_protocol=request_protocol,
             headers=headers,
             body=body,
+            force_provider_id=force_provider_id,
         )
-
-        # Filter to specific provider if requested
-        if force_provider_id is not None:
-            candidates = [c for c in candidates if c.provider_id == force_provider_id]
-            if not candidates:
-                raise ServiceError(
-                    message=f"Specified provider (id={force_provider_id}) is not available for this model",
-                    code="no_available_provider",
-                )
 
         # Extract image count for per-image billing
         image_count: Optional[int] = None
