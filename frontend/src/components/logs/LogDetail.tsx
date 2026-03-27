@@ -65,9 +65,13 @@ function _getLastUserMsg(messages: unknown): _ChatMsg | null {
   return null;
 }
 
-function _extractAssistantMsg(
-  body: unknown,
-): { content: string | null; tool_calls: unknown[] } | null {
+interface _AssistantMsg {
+  content: string | null;
+  tool_calls: unknown[];
+  thinking: string | null;
+}
+
+function _extractAssistantMsg(body: unknown): _AssistantMsg | null {
   if (!body) return null;
 
   // Non-streaming JSON — OpenAI format
@@ -82,6 +86,7 @@ function _extractAssistantMsg(
         return {
           content: (msg.content as string | null) ?? null,
           tool_calls: (msg.tool_calls as unknown[]) ?? [],
+          thinking: null,
         };
     }
     // Anthropic non-stream: { content: [{ type, text } | { type, name, input }] }
@@ -102,13 +107,13 @@ function _extractAssistantMsg(
   return null;
 }
 
-function _extractAnthropicContent(
-  blocks: unknown[],
-): { content: string | null; tool_calls: unknown[] } {
+function _extractAnthropicContent(blocks: unknown[]): _AssistantMsg {
   let text = "";
+  let thinking = "";
   const tool_calls: unknown[] = [];
   for (const blk of blocks) {
     const b = blk as Record<string, unknown>;
+    if (b.type === "thinking") thinking += (b.thinking as string) ?? "";
     if (b.type === "text") text += (b.text as string) ?? "";
     if (b.type === "tool_use") {
       tool_calls.push({
@@ -123,14 +128,12 @@ function _extractAnthropicContent(
       });
     }
   }
-  return { content: text || null, tool_calls };
+  return { content: text || null, tool_calls, thinking: thinking || null };
 }
 
-function _extractAnthropicStream(
-  text: string,
-): { content: string | null; tool_calls: unknown[] } {
+function _extractAnthropicStream(text: string): _AssistantMsg {
   let content = "";
-  // Map block index → { id, name, input_json }
+  let thinking = "";
   const tcMap: Record<
     number,
     { id: string; name: string; input_json: string }
@@ -141,16 +144,19 @@ function _extractAnthropicStream(
     if (!m) continue;
     try {
       const ev = JSON.parse(m[1].trim());
-      if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") {
-        tcMap[ev.index as number] = {
-          id: ev.content_block.id,
-          name: ev.content_block.name,
-          input_json: "",
-        };
+      if (ev.type === "content_block_start") {
+        if (ev.content_block?.type === "tool_use") {
+          tcMap[ev.index as number] = {
+            id: ev.content_block.id,
+            name: ev.content_block.name,
+            input_json: "",
+          };
+        }
       }
       if (ev.type === "content_block_delta") {
         const d = ev.delta as Record<string, unknown>;
         if (d.type === "text_delta") content += (d.text as string) ?? "";
+        if (d.type === "thinking_delta") thinking += (d.thinking as string) ?? "";
         if (d.type === "input_json_delta")
           tcMap[ev.index as number].input_json +=
             (d.partial_json as string) ?? "";
@@ -164,12 +170,10 @@ function _extractAnthropicStream(
     id: tc.id,
     function: { name: tc.name, arguments: tc.input_json },
   }));
-  return { content: content || null, tool_calls };
+  return { content: content || null, tool_calls, thinking: thinking || null };
 }
 
-function _extractOpenAIStream(
-  text: string,
-): { content: string | null; tool_calls: unknown[] } {
+function _extractOpenAIStream(text: string): _AssistantMsg {
   let content = "";
   const tcMap: Record<
     number,
@@ -210,7 +214,25 @@ function _extractOpenAIStream(
   return {
     content: content || null,
     tool_calls: Object.values(tcMap),
+    thinking: null,
   };
+}
+
+/**
+ * Parse <thinking>...</thinking> markers from live content text.
+ * Returns { thinking, text } with markers stripped.
+ */
+function _parseLiveContent(raw: string): { thinking: string | null; text: string } {
+  const match = raw.match(/^<thinking>\n([\s\S]*?)\n<\/thinking>(?:\n\n([\s\S]*))?$/);
+  if (match) {
+    return { thinking: match[1] ?? null, text: match[2] ?? "" };
+  }
+  // Thinking-only (stream still in progress, text not yet started)
+  const thinkingOnly = raw.match(/^<thinking>\n([\s\S]*)$/);
+  if (thinkingOnly) {
+    return { thinking: thinkingOnly[1] ?? null, text: "" };
+  }
+  return { thinking: null, text: raw };
 }
 
 function _renderUserContent(msg: _ChatMsg): React.ReactNode {
@@ -746,26 +768,48 @@ export function LogDetail({ log }: LogDetailProps) {
         </CardContent>
       </Card>
 
-      {(log.status === 'in_progress' || log.live_content) && (
-        <Card className="border-blue-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              {log.status === 'in_progress' && (
-                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+      {(log.status === 'in_progress' || log.live_content) && (() => {
+        const raw = log.live_content || '';
+        const { thinking: liveThinking, text: liveText } = _parseLiveContent(raw);
+        const isEmpty = !raw && log.status === 'in_progress';
+        return (
+          <Card className="border-blue-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                {log.status === 'in_progress' && (
+                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+                )}
+                实时输出
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 pt-0">
+              {isEmpty && (
+                <p className="font-mono text-sm text-muted-foreground">等待响应...</p>
               )}
-              实时输出
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <pre
-              ref={liveContentRef}
-              className="max-h-96 overflow-y-auto whitespace-pre-wrap break-words rounded bg-muted/50 p-3 font-mono text-sm"
-            >
-              {log.live_content || (log.status === 'in_progress' ? '等待响应...' : '')}
-            </pre>
-          </CardContent>
-        </Card>
-      )}
+              {liveThinking && (
+                <details open={!liveText}>
+                  <summary className="cursor-pointer select-none text-xs font-medium text-purple-600">
+                    思考过程{log.status === 'in_progress' && !liveText && (
+                      <span className="ml-1 animate-pulse">…</span>
+                    )}
+                  </summary>
+                  <pre className="mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded border border-purple-200 bg-purple-50/50 p-3 font-mono text-xs text-purple-900 dark:bg-purple-950/20 dark:text-purple-200">
+                    {liveThinking}
+                  </pre>
+                </details>
+              )}
+              {liveText && (
+                <pre
+                  ref={liveContentRef}
+                  className="max-h-96 overflow-y-auto whitespace-pre-wrap break-words rounded bg-muted/50 p-3 font-mono text-sm"
+                >
+                  {liveText}
+                </pre>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {log.error_info && (
         <Card className="border-red-200 bg-red-50/50">
@@ -785,7 +829,8 @@ export function LogDetail({ log }: LogDetailProps) {
 
       {(previewUserMsg ||
         (previewAssistantMsg &&
-          (previewAssistantMsg.content ||
+          (previewAssistantMsg.thinking ||
+            previewAssistantMsg.content ||
             (previewAssistantMsg.tool_calls?.length ?? 0) > 0))) && (
         <Card>
           <CardHeader className="pb-3">
@@ -816,7 +861,8 @@ export function LogDetail({ log }: LogDetailProps) {
               </div>
             )}
             {previewAssistantMsg &&
-              (previewAssistantMsg.content ||
+              (previewAssistantMsg.thinking ||
+                previewAssistantMsg.content ||
                 (previewAssistantMsg.tool_calls?.length ?? 0) > 0) && (
                 <div className="rounded-lg border bg-muted/30 p-3">
                   <div className="mb-2">
@@ -827,40 +873,52 @@ export function LogDetail({ log }: LogDetailProps) {
                       assistant
                     </Badge>
                   </div>
-                  <div className="max-h-56 space-y-2 overflow-y-auto text-sm">
-                    {previewAssistantMsg.content && (
-                      <p className="whitespace-pre-wrap break-words">
-                        {previewAssistantMsg.content}
-                      </p>
+                  <div className="space-y-2 text-sm">
+                    {previewAssistantMsg.thinking && (
+                      <details>
+                        <summary className="cursor-pointer select-none text-xs font-medium text-purple-600">
+                          思考过程
+                        </summary>
+                        <pre className="mt-1 max-h-56 overflow-y-auto whitespace-pre-wrap break-words rounded border border-purple-200 bg-purple-50/50 p-2 font-mono text-xs text-purple-900 dark:bg-purple-950/20 dark:text-purple-200">
+                          {previewAssistantMsg.thinking}
+                        </pre>
+                      </details>
                     )}
-                    {Array.isArray(previewAssistantMsg.tool_calls) &&
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      previewAssistantMsg.tool_calls.map((tc: any, i) => {
-                        const name = tc.function?.name || "(unknown)";
-                        let args = "";
-                        try {
-                          args = JSON.stringify(
-                            JSON.parse(tc.function?.arguments || "{}"),
-                            null,
-                            2,
-                          );
-                        } catch {
-                          args = tc.function?.arguments || "";
-                        }
-                        return (
-                          <div
-                            key={i}
-                            className="rounded border bg-muted/50 p-2 font-mono text-xs"
-                          >
-                            <div className="mb-1 font-semibold text-blue-600">
-                              {name}()
+                    <div className="max-h-56 space-y-2 overflow-y-auto">
+                      {previewAssistantMsg.content && (
+                        <p className="whitespace-pre-wrap break-words">
+                          {previewAssistantMsg.content}
+                        </p>
+                      )}
+                      {Array.isArray(previewAssistantMsg.tool_calls) &&
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        previewAssistantMsg.tool_calls.map((tc: any, i) => {
+                          const name = tc.function?.name || "(unknown)";
+                          let args = "";
+                          try {
+                            args = JSON.stringify(
+                              JSON.parse(tc.function?.arguments || "{}"),
+                              null,
+                              2,
+                            );
+                          } catch {
+                            args = tc.function?.arguments || "";
+                          }
+                          return (
+                            <div
+                              key={i}
+                              className="rounded border bg-muted/50 p-2 font-mono text-xs"
+                            >
+                              <div className="mb-1 font-semibold text-blue-600">
+                                {name}()
+                              </div>
+                              <pre className="whitespace-pre-wrap break-words text-muted-foreground">
+                                {args}
+                              </pre>
                             </div>
-                            <pre className="whitespace-pre-wrap break-words text-muted-foreground">
-                              {args}
-                            </pre>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                    </div>
                   </div>
                 </div>
               )}

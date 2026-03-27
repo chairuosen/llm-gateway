@@ -92,6 +92,7 @@ class StreamUsageAccumulator:
         self._token_counter = get_token_counter(self.protocol)
 
         self._text_parts: list[str] = []
+        self._thinking_parts: list[str] = []
         self._tool_calls_buffer: dict[int, dict[str, Any]] = {}
         self._upstream_output_tokens: Optional[int] = None
         self._upstream_input_tokens: Optional[int] = None
@@ -104,8 +105,14 @@ class StreamUsageAccumulator:
 
     @property
     def current_output_text(self) -> str:
-        """Return accumulated text so far (without finalization)."""
-        return "".join(self._text_parts)
+        """Return accumulated text so far (without finalization), thinking blocks included."""
+        thinking = "".join(self._thinking_parts)
+        text = "".join(self._text_parts)
+        if thinking and text:
+            return f"<thinking>\n{thinking}\n</thinking>\n\n{text}"
+        if thinking:
+            return f"<thinking>\n{thinking}\n</thinking>"
+        return text
 
     def feed(self, chunk: bytes) -> None:
         for payload in self._decoder.feed(chunk):
@@ -257,17 +264,25 @@ class StreamUsageAccumulator:
                             },
                         }
 
-        # Anthropic Messages stream: content_block_delta.delta.text
+        # Anthropic Messages stream: content_block_delta.delta.text / thinking
         if event_type == "content_block_delta":
             index = data.get("index")
             delta = data.get("delta")
             if isinstance(delta, dict):
-                text = delta.get("text")
-                if isinstance(text, str) and text:
-                    self._text_parts.append(text)
+                delta_type = delta.get("type")
+
+                if delta_type == "text_delta":
+                    text = delta.get("text")
+                    if isinstance(text, str) and text:
+                        self._text_parts.append(text)
+
+                elif delta_type == "thinking_delta":
+                    thinking = delta.get("thinking")
+                    if isinstance(thinking, str) and thinking:
+                        self._thinking_parts.append(thinking)
 
                 # Handle tool arguments streaming
-                if delta.get("type") == "input_json_delta" and isinstance(index, int):
+                elif delta_type == "input_json_delta" and isinstance(index, int):
                     partial_json = delta.get("partial_json")
                     if partial_json and index in self._tool_calls_buffer:
                         self._tool_calls_buffer[index]["function"]["arguments"] += (
