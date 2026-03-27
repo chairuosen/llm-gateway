@@ -7,6 +7,7 @@
 
 | 日期 | 类型 | 描述 | 详情 |
 |------|------|------|------|
+| 2026-03-27 | feat | 流式空响应：buffer 至首个内容 chunk，无内容则拦截发送 error SSE event 替代空 framing | — |
 | 2026-03-27 | feat | proxy 检测空响应（无文本无工具调用）返回 520/EMPTY_UPSTREAM_RESPONSE 错误，不触发熔断计数 | — |
 | 2026-03-25 | fix | 修复 provider extra_query_params 保存后丢失的 bug（repo 及 service 响应映射遗漏字段） | — |
 | 2026-03-25 | feat | Provider 配置新增自定义 URL Query 参数（extra_query_params），支持如 /v1/messages?beta=true 场景 | — |

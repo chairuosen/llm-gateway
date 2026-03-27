@@ -97,6 +97,11 @@ class StreamUsageAccumulator:
         self._upstream_input_tokens: Optional[int] = None
         self._usage_details: Optional[UsageDetails] = None
 
+    @property
+    def has_content(self) -> bool:
+        """Return True if any text or tool-call content has been seen so far."""
+        return bool(self._text_parts) or bool(self._tool_calls_buffer)
+
     def feed(self, chunk: bytes) -> None:
         for payload in self._decoder.feed(chunk):
             self._handle_payload(payload)

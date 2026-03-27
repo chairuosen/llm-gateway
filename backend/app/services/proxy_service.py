@@ -1383,14 +1383,51 @@ class ProxyService:
                     return
                 raw_stream_chunks.append(str(chunk).encode("utf-8"))
 
+            # Track whether any real content (text / tool call) has been seen.
+            # Buffer pre-content chunks so we can intercept an empty response
+            # before any meaningful bytes reach the client.
+            pre_content_buf: list[bytes] = []
+            content_seen = False
+
+            def _make_error_sse(proto: str) -> bytes:
+                """Build an error SSE event for the empty-response case."""
+                if (proto or "").lower().startswith("anthropic"):
+                    payload = json.dumps({
+                        "type": "error",
+                        "error": {"type": "empty_response", "message": "Upstream returned empty content (no text, no tool calls)"},
+                    }, ensure_ascii=False)
+                else:
+                    payload = json.dumps({
+                        "error": {"type": "empty_response", "code": "EMPTY_UPSTREAM_RESPONSE", "message": "Upstream returned empty content (no text, no tool calls)"},
+                    }, ensure_ascii=False)
+                return f"data: {payload}\n\ndata: [DONE]\n\n".encode()
+
             try:
                 usage_acc.feed(first_chunk)
                 record_stream_chunk(first_chunk)
-                yield first_chunk
+                if usage_acc.has_content:
+                    content_seen = True
+                    yield first_chunk
+                else:
+                    pre_content_buf.append(first_chunk)
+
                 async for chunk, _, _, _ in stream_gen:
                     usage_acc.feed(chunk)
                     record_stream_chunk(chunk)
-                    yield chunk
+                    if content_seen:
+                        yield chunk
+                    elif usage_acc.has_content:
+                        content_seen = True
+                        for bc in pre_content_buf:
+                            yield bc
+                        pre_content_buf.clear()
+                        yield chunk
+                    else:
+                        pre_content_buf.append(chunk)
+
+                # Stream fully consumed; if still no content, replace with error event
+                if not content_seen:
+                    yield _make_error_sse(protocol)
             except asyncio.CancelledError:
                 stream_error = "client_disconnected"
                 raise
@@ -1400,7 +1437,7 @@ class ProxyService:
                 return
             finally:
                 usage_result = usage_acc.finalize()
-                if stream_error is None and not usage_result.output_text:
+                if stream_error is None and not content_seen:
                     logger.warning(
                         "Empty upstream stream response (no content, no tool calls): provider_id=%s, provider_name=%s",
                         final_provider.provider_id if final_provider else None,
