@@ -619,6 +619,8 @@
       "addProvidersHint": "Add providers to enable protocol selection.",
       "stream": "Stream",
       "streamHint": "Measure time to first token by streaming.",
+      "customPrompt": "Custom Prompt",
+      "customPromptPlaceholder": "Leave empty to use the default prompt \"hello\"",
       "protocolRequired": "Please select a protocol.",
       "testFailed": "Test failed",
       "provider": "Provider",

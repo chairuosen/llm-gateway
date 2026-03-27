@@ -91,6 +91,7 @@ class ModelTestRequest(BaseModel):
     protocol: str
     stream: bool = False
     provider_id: Optional[int] = None
+    prompt: Optional[str] = None
 
 
 class ModelTestResponse(BaseModel):
@@ -108,14 +109,16 @@ def _build_test_payload(
     requested_model: str,
     protocol: str,
     stream: bool,
+    prompt: Optional[str] = None,
 ) -> tuple[str, dict[str, Any], str]:
+    text = (prompt or "").strip() or "hello"
     implementation = resolve_implementation_protocol(protocol)
     if implementation == ANTHROPIC_PROTOCOL:
         return (
             "/v1/messages",
             {
                 "model": requested_model,
-                "messages": [{"role": "user", "content": "hello"}],
+                "messages": [{"role": "user", "content": text}],
                 "max_tokens": 1024,
                 "stream": stream,
             },
@@ -127,7 +130,7 @@ def _build_test_payload(
             "/v1/responses",
             {
                 "model": requested_model,
-                "input": "hello",
+                "input": text,
                 "max_output_tokens": 1024,
                 "stream": stream,
             },
@@ -138,7 +141,7 @@ def _build_test_payload(
         return (
             f"/v1beta/models/{requested_model}:{'streamGenerateContent?alt=sse' if stream else 'generateContent'}",
             {
-                "contents": [{"role": "user", "parts": [{"text": "hello"}]}],
+                "contents": [{"role": "user", "parts": [{"text": text}]}],
             },
             implementation,
         )
@@ -147,7 +150,7 @@ def _build_test_payload(
         "/v1/chat/completions",
         {
             "model": requested_model,
-            "messages": [{"role": "user", "content": "hello"}],
+            "messages": [{"role": "user", "content": text}],
             "max_tokens": 1024,
             "stream": stream,
         },
@@ -507,6 +510,7 @@ async def test_model(
             requested_model=requested_model,
             protocol=data.protocol,
             stream=data.stream,
+            prompt=data.prompt,
         )
         headers: dict[str, str] = {}
 

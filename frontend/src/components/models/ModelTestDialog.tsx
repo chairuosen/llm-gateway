@@ -57,6 +57,7 @@ export function ModelTestDialog({
   const tCommon = useTranslations('common');
   const [protocol, setProtocol] = useState<ProtocolType | ''>('');
   const [stream, setStream] = useState(false);
+  const [prompt, setPrompt] = useState('');
   const [selectedProviderId, setSelectedProviderId] = useState<string>(ALL_PROVIDERS_VALUE);
   const [providerResults, setProviderResults] = useState<ProviderResult[]>([]);
   const [singleResult, setSingleResult] = useState<ModelTestResponse | null>(null);
@@ -153,6 +154,7 @@ export function ModelTestDialog({
                 protocol: protocol as ProtocolType,
                 stream,
                 provider_id: provider.provider_id,
+                prompt: prompt.trim() || undefined,
               },
             });
             setProviderResults((prev) =>
@@ -188,6 +190,7 @@ export function ModelTestDialog({
             protocol: protocol as ProtocolType,
             stream,
             provider_id: parseInt(selectedProviderId, 10),
+            prompt: prompt.trim() || undefined,
           },
         });
         setSingleResult(response);
@@ -283,6 +286,18 @@ export function ModelTestDialog({
               id="model-test-stream"
               checked={stream}
               onCheckedChange={setStream}
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="model-test-prompt">{t('testDialog.customPrompt')}</Label>
+            <Textarea
+              id="model-test-prompt"
+              rows={3}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder={t('testDialog.customPromptPlaceholder')}
+              className="font-mono text-sm resize-none"
             />
           </div>
         </div>

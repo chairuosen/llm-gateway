@@ -619,6 +619,8 @@
       "addProvidersHint": "添加供应商后可选择协议。",
       "stream": "流式",
       "streamHint": "通过流式测量首 token 时间。",
+      "customPrompt": "自定义提示词",
+      "customPromptPlaceholder": "留空则使用默认提示词 \"hello\"",
       "protocolRequired": "请选择协议。",
       "testFailed": "测试失败",
       "provider": "供应商",

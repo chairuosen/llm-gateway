@@ -306,6 +306,7 @@ export interface ModelTestRequest {
   protocol: ProtocolType;
   stream: boolean;
   provider_id?: number;
+  prompt?: string;
 }
 
 export interface ModelTestResponse {
