@@ -5,7 +5,7 @@ Provides concrete database operation implementation for request logs.
 """
 
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import Integer, and_, case, cast, delete, func, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,6 +59,7 @@ _SUMMARY_COLUMNS = [
     RequestLogORM.response_status,
     RequestLogORM.trace_id,
     RequestLogORM.is_stream,
+    RequestLogORM.status,
 ]
 
 
@@ -129,6 +130,7 @@ class SQLAlchemyLogRepository(LogRepository):
             request_path=entity.request_path,
             request_method=entity.request_method,
             upstream_url=entity.upstream_url,
+            status=entity.status,
         )
 
     def _row_to_summary(self, row) -> RequestLogSummary:
@@ -159,6 +161,7 @@ class SQLAlchemyLogRepository(LogRepository):
             response_status=row["response_status"],
             trace_id=row["trace_id"],
             is_stream=row["is_stream"],
+            status=row["status"],
         )
 
     async def create(self, data: RequestLogCreate) -> RequestLogModel:
@@ -195,6 +198,7 @@ class SQLAlchemyLogRepository(LogRepository):
             request_path=data.request_path,
             request_method=data.request_method,
             upstream_url=data.upstream_url,
+            status=data.status,
             # Large fields NULL on main table (stored in detail table)
             request_headers=None,
             response_headers=None,
@@ -264,7 +268,100 @@ class SQLAlchemyLogRepository(LogRepository):
             request_path=entity.request_path,
             request_method=entity.request_method,
             upstream_url=entity.upstream_url,
+            status=entity.status,
         )
+
+    async def create_pending(
+        self,
+        trace_id: str,
+        request_time: datetime,
+        api_key_id: Optional[int],
+        api_key_name: Optional[str],
+        requested_model: Optional[str],
+        is_stream: bool,
+        request_path: Optional[str],
+        request_method: Optional[str],
+        sanitized_body: Optional[dict[str, Any]],
+    ) -> int:
+        """Create a minimal 'in_progress' log record at request start."""
+        entity = RequestLogORM(
+            request_time=to_utc_naive(request_time),
+            api_key_id=api_key_id,
+            api_key_name=api_key_name,
+            requested_model=requested_model,
+            is_stream=is_stream,
+            request_path=request_path,
+            request_method=request_method,
+            trace_id=trace_id,
+            status="in_progress",
+        )
+        self.session.add(entity)
+        await self.session.flush()
+        # Detail row with request body so detail page can show it while in_progress
+        detail = RequestLogDetailORM(
+            log_id=entity.id,
+            request_body=sanitized_body,
+        )
+        self.session.add(detail)
+        await self.session.commit()
+        return entity.id
+
+    async def update_final(self, log_id: int, data: RequestLogCreate) -> None:
+        """Finalize an in_progress log record with full data."""
+        result = await self.session.execute(
+            select(RequestLogORM).where(RequestLogORM.id == log_id)
+        )
+        entity = result.scalar_one_or_none()
+        if not entity:
+            # Fallback: record was lost — create fresh
+            await self.create(data)
+            return
+        # Update scalar fields
+        entity.request_time = to_utc_naive(data.request_time)
+        entity.api_key_id = data.api_key_id
+        entity.api_key_name = data.api_key_name
+        entity.requested_model = data.requested_model
+        entity.target_model = data.target_model
+        entity.provider_id = data.provider_id
+        entity.provider_name = data.provider_name
+        entity.retry_count = data.retry_count
+        entity.matched_provider_count = data.matched_provider_count
+        entity.first_byte_delay_ms = data.first_byte_delay_ms
+        entity.total_time_ms = data.total_time_ms
+        entity.input_tokens = data.input_tokens
+        entity.output_tokens = data.output_tokens
+        entity.cache_read_tokens = data.cache_read_tokens
+        entity.cache_creation_tokens = data.cache_creation_tokens
+        entity.total_cost = data.total_cost
+        entity.input_cost = data.input_cost
+        entity.output_cost = data.output_cost
+        entity.cached_input_cost = data.cached_input_cost
+        entity.cached_output_cost = data.cached_output_cost
+        entity.cache_creation_cost = data.cache_creation_cost
+        entity.price_source = data.price_source
+        entity.response_status = data.response_status
+        entity.is_stream = data.is_stream
+        entity.request_protocol = data.request_protocol
+        entity.supplier_protocol = data.supplier_protocol
+        entity.request_path = data.request_path
+        entity.request_method = data.request_method
+        entity.upstream_url = data.upstream_url
+        entity.status = "completed"
+        # Update detail row
+        detail_result = await self.session.execute(
+            select(RequestLogDetailORM).where(RequestLogDetailORM.log_id == log_id)
+        )
+        detail = detail_result.scalar_one_or_none()
+        if detail:
+            detail.request_body = data.request_body
+            detail.response_body = data.response_body
+            detail.request_headers = data.request_headers
+            detail.response_headers = data.response_headers
+            detail.converted_request_body = data.converted_request_body
+            detail.upstream_response_body = data.upstream_response_body
+            detail.usage_details = data.usage_details
+            detail.error_info = data.error_info
+        await self.session.commit()
 
     async def get_by_id(self, id: int) -> Optional[RequestLogModel]:
         """Get log by ID with full detail"""

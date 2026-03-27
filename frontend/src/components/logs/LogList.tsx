@@ -135,9 +135,15 @@ export function LogList({ logs, onView }: LogListProps) {
               </TableCell>
               <TableCell>
                 <div className="flex flex-col items-start gap-1">
-                  <Badge variant="outline" className={statusColor}>
-                    {log.response_status ?? t('unknown')}
-                  </Badge>
+                  {log.status === 'in_progress' ? (
+                    <Badge variant="outline" className="animate-pulse border-blue-400 text-blue-600">
+                      进行中
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className={statusColor}>
+                      {log.response_status ?? t('unknown')}
+                    </Badge>
+                  )}
                   {log.retry_count > 0 && (
                     <span className="text-xs text-orange-500">
                       {t('list.retry', { count: log.retry_count })}

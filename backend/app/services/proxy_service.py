@@ -654,6 +654,18 @@ class ProxyService:
                 )
                 return ProviderResponse(status_code=400, error=error_msg)
 
+        log_id = await self.log_repo.create_pending(
+            trace_id=trace_id,
+            request_time=request_time,
+            api_key_id=api_key_id,
+            api_key_name=api_key_name,
+            requested_model=requested_model,
+            is_stream=False,
+            request_path=path,
+            request_method=method,
+            sanitized_body=sanitized_body,
+        )
+
         result = await retry_handler.execute_with_retry(
             candidates=candidates,
             requested_model=requested_model,
@@ -924,8 +936,7 @@ class ProxyService:
             # Fallback for Pydantic v1
             logger.debug(f"Request Log: {log_data.json()}")
 
-        if result.success or not failed_attempt_logged:
-            await self._write_log(log_data)
+        await self.log_repo.update_final(log_id, log_data)
 
         return result.response, {
             "trace_id": trace_id,
@@ -1344,6 +1355,18 @@ class ProxyService:
             except Exception:
                 pass
 
+        log_id = await self.log_repo.create_pending(
+            trace_id=trace_id,
+            request_time=request_time,
+            api_key_id=api_key_id,
+            api_key_name=api_key_name,
+            requested_model=requested_model,
+            is_stream=True,
+            request_path=path,
+            request_method=method,
+            sanitized_body=sanitized_body,
+        )
+
         stream_gen = retry_handler.execute_with_retry_stream(
             candidates,
             requested_model,
@@ -1388,6 +1411,9 @@ class ProxyService:
             # before any meaningful bytes reach the client.
             pre_content_buf: list[bytes] = []
             content_seen = False
+            # Live content tracking for Redis
+            _last_live_update = time.monotonic()
+            _last_live_len = 0
 
             def _make_error_sse(proto: str) -> bytes:
                 """Build an error SSE event for the empty-response case."""
@@ -1416,6 +1442,19 @@ class ProxyService:
                     record_stream_chunk(chunk)
                     if content_seen:
                         yield chunk
+                        # Throttled live content update to Redis (~1s interval)
+                        _now = time.monotonic()
+                        if _now - _last_live_update > 1.0:
+                            _current_text = usage_acc.current_output_text
+                            if len(_current_text) > _last_live_len:
+                                try:
+                                    from app.db.redis import get_redis
+                                    _redis = get_redis()
+                                    await _redis.setex(f"live:content:{trace_id}", 300, _current_text)
+                                except Exception:
+                                    pass
+                                _last_live_len = len(_current_text)
+                                _last_live_update = _now
                     elif usage_acc.has_content:
                         content_seen = True
                         for bc in pre_content_buf:
@@ -1624,7 +1663,14 @@ class ProxyService:
                 # client disconnect triggers cancellation, use shield to ensure logs are written to DB
                 try:
                     with anyio.CancelScope(shield=True):
-                        await self._write_log(log_data)
+                        await self.log_repo.update_final(log_id, log_data)
+                        # Clean up Redis live content
+                        try:
+                            from app.db.redis import get_redis
+                            _redis = get_redis()
+                            await _redis.delete(f"live:content:{trace_id}")
+                        except Exception:
+                            pass
                 except Exception:
                     # Log writing failure does not affect main flow
                     pass

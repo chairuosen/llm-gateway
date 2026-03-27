@@ -103,6 +103,8 @@ class RequestLogCreate(RequestLogBase):
     upstream_response_body: Optional[str] = Field(
         None, description="Upstream Response Body (before protocol conversion)"
     )
+    # Request status: 'in_progress' while active, 'completed' after finishing
+    status: str = Field("completed", description="Request status")
 
 
 class RequestLogModel(RequestLogCreate):
@@ -141,6 +143,7 @@ class RequestLogSummary(BaseModel):
     response_status: Optional[int] = None
     trace_id: Optional[str] = None
     is_stream: bool = False
+    status: str = "completed"
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -173,6 +176,7 @@ class RequestLogResponse(RequestLogBase):
     response_status: Optional[int] = None
     trace_id: Optional[str] = None
     is_stream: bool = False
+    status: str = "completed"
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -181,7 +185,8 @@ class RequestLogDetailResponse(RequestLogModel):
     """Request Log Detail Response Model"""
 
     response_body: Optional[Any] = Field(None, description="Response Body (Auto-parsed JSON)")
-    
+    live_content: Optional[str] = Field(None, description="Live streaming text (while in_progress)")
+
     model_config = ConfigDict(from_attributes=True)
 
 

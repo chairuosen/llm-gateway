@@ -5,7 +5,7 @@
 
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -305,6 +305,14 @@ export function LogDetail({ log }: LogDetailProps) {
   const [layout, setLayout] = useState<"vertical" | "horizontal">("vertical");
   const [traceCopied, setTraceCopied] = useState(false);
   const [curlCopied, setCurlCopied] = useState(false);
+  const liveContentRef = useRef<HTMLPreElement>(null);
+
+  // Auto-scroll live content to bottom as new text arrives
+  useEffect(() => {
+    if (liveContentRef.current) {
+      liveContentRef.current.scrollTop = liveContentRef.current.scrollHeight;
+    }
+  }, [log?.live_content]);
 
   const responseStatus = log?.response_status;
   const statusVariant = useMemo<BadgeProps["variant"]>(() => {
@@ -737,6 +745,27 @@ export function LogDetail({ log }: LogDetailProps) {
           </div>
         </CardContent>
       </Card>
+
+      {(log.status === 'in_progress' || log.live_content) && (
+        <Card className="border-blue-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              {log.status === 'in_progress' && (
+                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+              )}
+              实时输出
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <pre
+              ref={liveContentRef}
+              className="max-h-96 overflow-y-auto whitespace-pre-wrap break-words rounded bg-muted/50 p-3 font-mono text-sm"
+            >
+              {log.live_content || (log.status === 'in_progress' ? '等待响应...' : '')}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
 
       {log.error_info && (
         <Card className="border-red-200 bg-red-50/50">

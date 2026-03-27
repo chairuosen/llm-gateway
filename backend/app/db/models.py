@@ -375,6 +375,8 @@ class RequestLog(Base):
     converted_request_body: Mapped[Optional[dict]] = mapped_column(SQLiteJSON, nullable=True)
     # Upstream response body (original response before protocol conversion)
     upstream_response_body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Request status: 'in_progress' while request is active, 'completed' after it finishes
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="completed")
 
     # Indices for optimizing queries
     __table_args__ = (
@@ -385,6 +387,7 @@ class RequestLog(Base):
         Index("idx_request_logs_time_apikey", "request_time", "api_key_id"),
         Index("idx_request_logs_model", "requested_model"),
         Index("idx_request_logs_api_key", "api_key_id"),
+        Index("idx_request_logs_status", "status"),
     )
 
     # Relationships

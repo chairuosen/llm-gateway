@@ -213,16 +213,26 @@ async def get_log(
 ):
     """
     Get Log Details
-    
+
     Includes full request/response info (authorization sanitized).
+    While status is 'in_progress', also returns live_content from Redis if available.
     """
     try:
         log = await service.get_by_id(log_id)
+        live_content = None
+        if getattr(log, "status", "completed") == "in_progress":
+            try:
+                from app.db.redis import get_redis
+                _redis = get_redis()
+                live_content = await _redis.get(f"live:content:{log.trace_id}")
+            except Exception:
+                pass
         return RequestLogDetailResponse(
             **log.model_dump(exclude={"response_body"}),
             response_body=try_parse_json_object(log.response_body)
             if log.response_body
             else None,
+            live_content=live_content,
         )
     except AppError as e:
         return JSONResponse(content=e.to_dict(), status_code=e.status_code)

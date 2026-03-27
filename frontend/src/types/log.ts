@@ -29,6 +29,7 @@ export interface RequestLog {
   response_status?: number;
   trace_id?: string;
   is_stream?: boolean;
+  status?: 'in_progress' | 'completed';
 }
 
 /** Request Log Detail Entity (Includes full request/response) */
@@ -52,6 +53,7 @@ export interface RequestLogDetail extends RequestLog {
   converted_request_body?: Record<string, any>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   upstream_response_body?: any;
+  live_content?: string | null;
 }
 
 /** Log Query Params */

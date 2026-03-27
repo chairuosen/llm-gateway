@@ -30,12 +30,15 @@ export function useLogs(params?: LogQueryParams) {
 
 /**
  * Get Log Detail Hook
+ * Auto-polls every 1s while the log is in_progress.
  */
 export function useLogDetail(id: number) {
   return useQuery({
     queryKey: QUERY_KEYS.detail(id),
     queryFn: () => getLogDetail(id),
     enabled: id > 0,
+    refetchInterval: (query) =>
+      query.state.data?.status === 'in_progress' ? 1000 : false,
   });
 }
 

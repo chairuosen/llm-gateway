@@ -102,6 +102,11 @@ class StreamUsageAccumulator:
         """Return True if any text or tool-call content has been seen so far."""
         return bool(self._text_parts) or bool(self._tool_calls_buffer)
 
+    @property
+    def current_output_text(self) -> str:
+        """Return accumulated text so far (without finalization)."""
+        return "".join(self._text_parts)
+
     def feed(self, chunk: bytes) -> None:
         for payload in self._decoder.feed(chunk):
             self._handle_payload(payload)

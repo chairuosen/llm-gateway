@@ -5,7 +5,8 @@ Defines the data access interface for request logs.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.domain.log import (
     RequestLogModel,
@@ -24,6 +25,38 @@ from app.domain.log import (
 class LogRepository(ABC):
     """Log Repository Interface"""
     
+    @abstractmethod
+    async def create_pending(
+        self,
+        trace_id: str,
+        request_time: datetime,
+        api_key_id: Optional[int],
+        api_key_name: Optional[str],
+        requested_model: Optional[str],
+        is_stream: bool,
+        request_path: Optional[str],
+        request_method: Optional[str],
+        sanitized_body: Optional[Dict[str, Any]],
+    ) -> int:
+        """
+        Create a minimal 'in_progress' log record at request start.
+
+        Returns:
+            int: The created log record's ID
+        """
+        pass
+
+    @abstractmethod
+    async def update_final(self, log_id: int, data: RequestLogCreate) -> None:
+        """
+        Finalize an in_progress log record with full data.
+
+        Args:
+            log_id: The ID returned by create_pending
+            data: Full log data to store
+        """
+        pass
+
     @abstractmethod
     async def create(self, data: RequestLogCreate) -> RequestLogModel:
         """
