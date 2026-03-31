@@ -7,6 +7,7 @@
 
 | 日期 | 类型 | 描述 | 详情 |
 |------|------|------|------|
+| 2026-03-31 | fix | in_progress 日志写入时同步记录 provider/target_model/matched_provider_count，列表页不再显示空值 | — |
 | 2026-03-27 | feat | 日志详情页展示 thinking 内容：实时输出与对话预览均支持 thinking 块，可折叠展示 | — |
 | 2026-03-27 | feat | 模型测试对话框新增自定义提示词输入框，留空使用默认 "hello" | — |
 | 2026-03-27 | fix | 模型测试对话框：强制指定非激活 provider 时绕过 is_active 过滤，允许测试任意 provider | — |

@@ -679,6 +679,10 @@ class ProxyService:
             request_path=path,
             request_method=method,
             sanitized_body=sanitized_body,
+            provider_id=candidates[0].provider_id if candidates else None,
+            provider_name=candidates[0].provider_name if candidates else None,
+            target_model=candidates[0].target_model if candidates else None,
+            matched_provider_count=len(candidates),
         )
 
         result = await retry_handler.execute_with_retry(
@@ -1372,6 +1376,10 @@ class ProxyService:
             request_path=path,
             request_method=method,
             sanitized_body=sanitized_body,
+            provider_id=candidates[0].provider_id if candidates else None,
+            provider_name=candidates[0].provider_name if candidates else None,
+            target_model=candidates[0].target_model if candidates else None,
+            matched_provider_count=len(candidates),
         )
 
         stream_gen = retry_handler.execute_with_retry_stream(

@@ -37,6 +37,10 @@ class LogRepository(ABC):
         request_path: Optional[str],
         request_method: Optional[str],
         sanitized_body: Optional[Dict[str, Any]],
+        provider_id: Optional[int] = None,
+        provider_name: Optional[str] = None,
+        target_model: Optional[str] = None,
+        matched_provider_count: Optional[int] = None,
     ) -> int:
         """
         Create a minimal 'in_progress' log record at request start.
